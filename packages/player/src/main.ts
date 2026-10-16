@@ -15,10 +15,13 @@ import { PlatformerMode } from './mode'
 import { loadGift, readFlags, recipientName, giftIdFromLocation } from './route'
 import { integerScale } from './scale'
 import { fold, screenOf, showingGift, type SessionPhase } from './phase'
+import { VirtualPad, type PadKey } from './pad'
 import { PlayScene } from './scene'
 import type { InputState } from './sim/platformer'
 
-const held = { left: false, right: false, jump: false }
+// Keyboard and pad keep separate held sets so releasing one never cancels the other.
+const keys = { left: false, right: false, jump: false }
+const pad = { left: false, right: false, jump: false }
 const edge = { jump: false, open: false }
 
 function must<T extends HTMLElement>(id: string): T {
@@ -33,19 +36,6 @@ function showError() {
   const error = must('error')
   error.hidden = false
   must<HTMLParagraphElement>('error-text').textContent = UNAVAILABLE
-}
-
-function bindHold(id: string, set: (down: boolean) => void) {
-  const node = must<HTMLButtonElement>(id)
-  const down = (event: PointerEvent) => {
-    event.preventDefault()
-    node.setPointerCapture(event.pointerId)
-    set(true)
-  }
-  node.addEventListener('pointerdown', down)
-  node.addEventListener('pointerup', () => set(false))
-  node.addEventListener('pointercancel', () => set(false))
-  node.addEventListener('pointerleave', () => set(false))
 }
 
 function boot(share: ShareJson, id: string) {
@@ -104,9 +94,9 @@ function boot(share: ShareJson, id: string) {
 
   scene.readInput = (): InputState => {
     const input = {
-      left: held.left,
-      right: held.right,
-      jump: held.jump,
+      left: keys.left || pad.left,
+      right: keys.right || pad.right,
+      jump: keys.jump || pad.jump,
       jumpPressed: edge.jump,
     }
     edge.jump = false
@@ -359,32 +349,34 @@ function boot(share: ShareJson, id: string) {
     void openLetter()
   })
 
-  bindHold('btn-left', (down) => {
-    held.left = down
-  })
-  bindHold('btn-right', (down) => {
-    held.right = down
-  })
-  bindHold('btn-jump', (down) => {
-    if (down && mode.read()?.atGoal) edge.open = true
-    else {
-      held.jump = down
-      if (down) edge.jump = true
+  function press(source: Record<PadKey, boolean>, key: PadKey, down: boolean) {
+    if (key === 'jump' && down && mode.read()?.atGoal) {
+      edge.open = true
+      return
     }
+    const rising = down && !keys[key] && !pad[key]
+    source[key] = down
+    if (key === 'jump' && rising) edge.jump = true
+  }
+
+  document.body.dataset.pad = 'idle'
+  new VirtualPad(must('pad'), (key, down) => {
+    press(pad, key, down)
+    const active = (['left', 'right', 'jump'] as const).filter((name) => pad[name])
+    document.body.dataset.pad = active.length ? active.join(' ') : 'idle'
   })
+  // iOS Safari ignores user-scalable=no; block pinch and double-tap zoom while playing.
+  document.addEventListener('gesturestart', (event) => event.preventDefault())
+  document.addEventListener('dblclick', (event) => event.preventDefault())
 
   window.addEventListener('keydown', (event) => {
     if (event.repeat) return
     const key = event.key.toLowerCase()
-    if (key === 'arrowleft' || key === 'a') held.left = true
-    if (key === 'arrowright' || key === 'd') held.right = true
+    if (key === 'arrowleft' || key === 'a') press(keys, 'left', true)
+    if (key === 'arrowright' || key === 'd') press(keys, 'right', true)
     if (key === 'arrowup' || key === 'w' || key === ' ') {
       event.preventDefault()
-      if (mode.read()?.atGoal) edge.open = true
-      else {
-        held.jump = true
-        edge.jump = true
-      }
+      press(keys, 'jump', true)
     }
     if (key === 'c') {
       walkFrames = walkFrames === 6 ? 8 : 6
@@ -394,9 +386,9 @@ function boot(share: ShareJson, id: string) {
   })
   window.addEventListener('keyup', (event) => {
     const key = event.key.toLowerCase()
-    if (key === 'arrowleft' || key === 'a') held.left = false
-    if (key === 'arrowright' || key === 'd') held.right = false
-    if (key === 'arrowup' || key === 'w' || key === ' ') held.jump = false
+    if (key === 'arrowleft' || key === 'a') press(keys, 'left', false)
+    if (key === 'arrowright' || key === 'd') press(keys, 'right', false)
+    if (key === 'arrowup' || key === 'w' || key === ' ') press(keys, 'jump', false)
   })
 
   const rotate = () => {

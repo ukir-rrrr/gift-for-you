@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="robots" content="noindex" />
     <title>gift-for-you</title>
     <link rel="stylesheet" href="/src/style.css" />
@@ -45,10 +45,19 @@
           <button id="btn-mute" type="button">おと オン</button>
           <button id="btn-flash" type="button">てんめつ あり</button>
         </div>
-        <div id="controls">
-          <button id="btn-left" type="button">左</button>
-          <button id="btn-right" type="button">右</button>
-          <button id="btn-jump" type="button">ジャンプ</button>
+        <div id="pad" data-testid="pad">
+          <div class="pad-move">
+            <div class="pad-btn" data-pad="left" data-testid="pad-left" role="button" aria-label="左">
+              <svg viewBox="0 0 8 8" aria-hidden="true"><path d="M5 0h1v8H5zM4 1h1v6H4zM3 2h1v4H3zM2 3h1v2H2z"/></svg>
+            </div>
+            <div class="pad-btn" data-pad="right" data-testid="pad-right" role="button" aria-label="右">
+              <svg viewBox="0 0 8 8" aria-hidden="true" class="flip"><path d="M5 0h1v8H5zM4 1h1v6H4zM3 2h1v4H3zM2 3h1v2H2z"/></svg>
+            </div>
+          </div>
+          <div class="pad-btn pad-jump" data-pad="jump" data-testid="pad-jump" role="button" aria-label="ジャンプ">
+            <svg viewBox="0 0 8 8" aria-hidden="true" class="up"><path d="M5 0h1v8H5zM4 1h1v6H4zM3 2h1v4H3zM2 3h1v2H2z"/></svg>
+            <span>ジャンプ</span>
+          </div>
         </div>
       </div>
     </div>
