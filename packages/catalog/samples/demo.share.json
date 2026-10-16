@@ -1,0 +1,35 @@
+{
+  "$schema": "https://gift-for-you.example/schema/share/v1.json",
+  "schemaVersion": 1,
+  "mode": "platformer",
+  "catalogVersion": "2026.10.1",
+  "locale": "ja",
+  "from": { "displayName": "健太" },
+  "to": { "displayName": "彩" },
+  "course": {
+    "templateId": "course-01",
+    "difficulty": "normal",
+    "obstaclePresets": ["preset-normal"],
+    "assist": { "autoAssistAfterFails": 3, "easyModeDefault": false }
+  },
+  "memoryCoins": [
+    { "order": 1, "photoRef": "photo-1", "message": "はじめて並んで歩いた日" },
+    { "order": 2, "photoRef": "photo-2", "message": "雨の駅前" },
+    { "order": 3, "photoRef": "photo-3", "message": "いつものコーヒー" },
+    { "order": 4, "photoRef": "missing-photo", "message": "まだ言葉になっていない" }
+  ],
+  "goal": {
+    "revealEffectId": "reveal-01",
+    "giftItem": { "itemId": "scarf", "label": "ずっと欲しかったマフラー" },
+    "letter": { "present": true },
+    "egift": { "present": true, "kind": "url", "domain": "giftee.com", "passphrase": false }
+  },
+  "hero": {
+    "hairId": "hair-bob",
+    "skinId": "skin-light",
+    "outfitId": "outfit-shirt",
+    "colors": { "hair": "#5c3a28", "skin": "#e8c4a0", "outfit": "#4a6580" }
+  },
+  "options": { "recordingModeDefault": false, "bgmId": "bgm-01" },
+  "expiresAt": "2027-01-13T00:00:00Z"
+}

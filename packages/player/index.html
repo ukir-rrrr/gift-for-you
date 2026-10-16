@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>gift-for-you</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body data-screen="boot">
+    <div id="rotate" hidden>たてむきにしてね</div>
+    <div id="error" hidden>
+      <p id="error-text" data-testid="error"></p>
+    </div>
+    <div id="stage">
+      <div id="frame">
+        <div id="overlay">
+          <p id="section"></p>
+          <div id="memory" data-testid="memory-popup" hidden>
+            <div class="memory-frame">
+              <img id="memory-photo" alt="" />
+              <img class="frame-art" src="/assets/fx/frame.png" alt="" />
+            </div>
+            <p id="memory-text"></p>
+          </div>
+          <button id="prompt" type="button" data-testid="prompt" hidden>タップして開ける</button>
+          <div id="held" hidden>
+            <img id="held-icon" alt="" />
+            <p id="held-label"></p>
+          </div>
+          <div id="assist" hidden>
+            <p>お助け</p>
+            <button id="btn-invincible" type="button">むてき</button>
+            <button id="btn-float" type="button">ふわふわ</button>
+            <button id="btn-skip" type="button">この先へ</button>
+          </div>
+          <p id="watermark" hidden>gift-for-you</p>
+        </div>
+      </div>
+      <div id="dock">
+        <div id="tools">
+          <button id="btn-easy" type="button">かんたん</button>
+          <button id="btn-walk" type="button">歩き 6</button>
+          <button id="btn-mute" type="button">おと オン</button>
+          <button id="btn-flash" type="button">てんめつ あり</button>
+        </div>
+        <div id="controls">
+          <button id="btn-left" type="button">左</button>
+          <button id="btn-right" type="button">右</button>
+          <button id="btn-jump" type="button">ジャンプ</button>
+        </div>
+      </div>
+    </div>
+    <div id="title">
+      <h1 id="title-text" data-testid="title"></h1>
+      <button id="btn-start" type="button" disabled>よみこみ中</button>
+    </div>
+    <div id="letter" data-testid="letter" hidden>
+      <div id="letter-body"></div>
+      <button id="btn-retry" type="button" hidden>つながったら開く</button>
+      <div id="egift" hidden>
+        <button id="btn-egift" type="button">eギフトを受け取る</button>
+      </div>
+    </div>
+    <div id="confirm" hidden>
+      <p id="confirm-domain"></p>
+      <p id="confirm-warn" hidden></p>
+      <p id="confirm-block" hidden></p>
+      <a id="confirm-go" target="_blank" rel="noopener noreferrer">開く</a>
+      <button id="confirm-cancel" type="button">やめる</button>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

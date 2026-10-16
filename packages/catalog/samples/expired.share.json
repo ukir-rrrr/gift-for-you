@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "mode": "platformer",
+  "catalogVersion": "2026.10.1",
+  "locale": "ja",
+  "from": { "displayName": "健太" },
+  "to": { "displayName": "彩" },
+  "course": {
+    "templateId": "course-01",
+    "difficulty": "easy",
+    "obstaclePresets": ["preset-easy"],
+    "assist": { "autoAssistAfterFails": 3, "easyModeDefault": false }
+  },
+  "memoryCoins": [],
+  "goal": {
+    "revealEffectId": "reveal-01",
+    "giftItem": { "itemId": "mug", "label": "マグカップ" },
+    "letter": { "present": true },
+    "egift": { "present": false }
+  },
+  "options": { "bgmId": "bgm-01" },
+  "expiresAt": "2020-01-01T00:00:00Z"
+}
