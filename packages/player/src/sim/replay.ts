@@ -10,7 +10,7 @@ export function runReplay(
 ): SimState {
   const steps = Math.floor(maxSec / PHYSICS.step)
   for (let i = 0; i < steps; i++) {
-    if (state.goalBeat !== 'none') break
+    if (state.atGoal) break
     stepSim(state, inputAt(state), course, PHYSICS.step)
   }
   return state

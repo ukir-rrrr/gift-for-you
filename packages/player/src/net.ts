@@ -1,10 +1,7 @@
 import { SAMPLE_REVEALS } from '@gfy/catalog'
-import { sanitizeDisplay } from '@gfy/schema'
+import { parseRevealJson, type RevealJson } from '@gfy/schema'
 
-export type Reveal = {
-  letter: { body: string }
-  egift?: { kind: 'url' | 'code'; url?: string; code?: string }
-}
+export type Reveal = RevealJson
 
 const queueKey = 'gfy-events'
 
@@ -39,21 +36,15 @@ export async function postEvent(id: string, type: 'opened' | 'goal_reached') {
 
 export async function fetchReveal(id: string): Promise<Reveal> {
   if (!goalMarked(id)) throw new Error('goal required')
+  let raw: unknown = null
   try {
     const res = await fetch(`/s/${encodeURIComponent(id)}/reveal`)
-    if (res.ok) {
-      const body = (await res.json()) as Reveal
-      return {
-        letter: { body: sanitizeDisplay(body.letter.body) },
-        egift: body.egift,
-      }
-    }
+    if (res.ok) raw = await res.json()
   } catch {
-    // fall through to the bundled fixture
+    raw = null
   }
-  const bundled = id === 'offlist' ? SAMPLE_REVEALS.offlist : SAMPLE_REVEALS.demo
-  return {
-    letter: { body: sanitizeDisplay(bundled.letter.body) },
-    egift: bundled.egift?.url ? { kind: 'url', url: bundled.egift.url } : undefined,
-  }
+  if (raw === null) raw = id === 'offlist' ? SAMPLE_REVEALS.offlist : SAMPLE_REVEALS.demo
+  const parsed = parseRevealJson(raw)
+  if (!parsed.ok) throw new Error(parsed.issues.join(','))
+  return parsed.value
 }

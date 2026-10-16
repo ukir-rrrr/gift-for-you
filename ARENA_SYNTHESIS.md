@@ -6,7 +6,7 @@ Cross-judge (composer-2.5) also picked A. Parent scores agreed on the base. Disa
 
 ## Grafts
 
-- From B: pose-table walk cycles (`HeroFrame` feet/arms, `plantedSlide`, `remapWalkFrame`) in `@gfy/catalog`, and `nextPhase` for title/play/assist/reveal/letter.
+- From B: pose-table walk cycles (`HeroFrame` feet/arms, `plantedSlide`, `remapWalkFrame`) in `@gfy/catalog`, and session `fold` for title/play/assist/reveal/letter.
 - From C: headless `runReplay` over the existing sim, without taking C's single-sheet renderer.
 
 ## Rejected

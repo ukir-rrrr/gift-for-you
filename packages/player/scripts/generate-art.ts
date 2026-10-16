@@ -16,6 +16,7 @@ import {
   POSE_FRAMES,
   WALK_6,
   WALK_8,
+  stridePx,
   walkCycle,
   type FootPose,
   type HeroFrame,
@@ -132,10 +133,11 @@ function heroPose(pose: Pose): HeroFrame {
 
 function feet(pose: Pose): { left: FootDraw; right: FootDraw } {
   const frame = heroPose(pose)
+  const plantY = SHEET_FRAME_H - 1
   const draw = (foot: FootPose): FootDraw => ({
     x: foot.x,
     y: foot.y,
-    shoe: foot.y === 23,
+    shoe: foot.y === plantY,
   })
   return { left: draw(frame.left), right: draw(frame.right) }
 }
@@ -202,30 +204,40 @@ function drawOutfit(pose: Pose, coat: boolean): Grid {
     rect(g, 5, 12, 6, 5, 'f')
     put(g, 8, 14, 's')
   }
+  const plantY = SHEET_FRAME_H - 1
   for (const foot of [leg.left, leg.right]) {
     if (!foot.shoe) continue
-    put(g, foot.x, 23, 'f')
-    put(g, foot.x - 1, 23, 'f')
-    put(g, foot.x, 22, 'f')
+    put(g, foot.x, plantY, 'f')
+    put(g, foot.x - 1, plantY, 'f')
+    put(g, foot.x, plantY - 1, 'f')
   }
   finish(g)
   for (const foot of [leg.left, leg.right]) {
-    if (foot.shoe && !g[23][foot.x]) throw new Error(`shoe missing at ${foot.x} for ${pose.kind}`)
+    if (foot.shoe && !g[plantY][foot.x]) throw new Error(`shoe missing at ${foot.x} for ${pose.kind}`)
   }
   return g
 }
 
-const poses: Pose[] = [
-  { kind: 'idle', blink: false },
-  { kind: 'idle', blink: true },
-  ...[0, 1, 2, 3, 4, 5].map((frame) => ({ kind: 'walk' as const, frame, count: 6 as const })),
-  ...[0, 1, 2, 3, 4, 5, 6, 7].map((frame) => ({ kind: 'walk' as const, frame, count: 8 as const })),
-  { kind: 'jump-up' },
-  { kind: 'jump-apex' },
-  { kind: 'jump-fall' },
-  { kind: 'land' },
-  { kind: 'turn' },
-]
+function posesFromAnimIndex(): Pose[] {
+  const poses: Array<Pose | undefined> = Array.from({ length: SHEET_FRAMES })
+  const set = (index: number, pose: Pose) => {
+    if (index < 0 || index >= SHEET_FRAMES) throw new Error(`frame ${index}`)
+    if (poses[index]) throw new Error(`duplicate frame ${index}`)
+    poses[index] = pose
+  }
+  for (const [i, frame] of ANIM_INDEX.idle.entries()) set(frame, { kind: 'idle', blink: i > 0 })
+  for (const [i, frame] of ANIM_INDEX.walk6.entries()) set(frame, { kind: 'walk', frame: i, count: 6 })
+  for (const [i, frame] of ANIM_INDEX.walk8.entries()) set(frame, { kind: 'walk', frame: i, count: 8 })
+  set(ANIM_INDEX['jump-up'][0], { kind: 'jump-up' })
+  set(ANIM_INDEX['jump-apex'][0], { kind: 'jump-apex' })
+  set(ANIM_INDEX['jump-fall'][0], { kind: 'jump-fall' })
+  set(ANIM_INDEX.land[0], { kind: 'land' })
+  set(ANIM_INDEX.turn[0], { kind: 'turn' })
+  if (poses.some((pose) => !pose)) throw new Error('ANIM_INDEX does not cover the sheet')
+  return poses as Pose[]
+}
+
+const poses = posesFromAnimIndex()
 
 function sheetFor(partId: string): Grid[] {
   return poses.map((pose) => {
@@ -558,8 +570,8 @@ function manifest() {
     anims: ANIM_INDEX,
     parts: HERO_PARTS.map((part) => ({ id: part.id, kind: part.kind, file: part.file, fill: part.fill, shade: part.shade })),
     walk: {
-      6: { stride: 12, plants: plants(WALK_6) },
-      8: { stride: 16, plants: plants(WALK_8) },
+      6: { stride: stridePx(WALK_6), plants: plants(WALK_6) },
+      8: { stride: stridePx(WALK_8), plants: plants(WALK_8) },
     },
   }
   writeFileSync(join(root, 'manifest.json'), JSON.stringify(body))

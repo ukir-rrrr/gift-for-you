@@ -7,7 +7,7 @@ export type BotView = {
   y: number
   grounded: boolean
   time: number
-  goalBeat: 'none' | 'hold' | 'open'
+  atGoal: boolean
   assist: 'none' | 'offered' | 'invincible' | 'float'
 }
 
@@ -22,8 +22,8 @@ function surfaceAt(course: RuntimeCourse, time: number, x: number, footY: number
 }
 
 export function botInput(state: BotView, course: RuntimeCourse, hold: { frames: number }): InputState {
-  if (state.goalBeat !== 'none') {
-    return { left: false, right: false, jump: false, jumpPressed: false, openPressed: false }
+  if (state.atGoal) {
+    return { left: false, right: false, jump: false, jumpPressed: false }
   }
   let jump = false
   if (state.grounded) {
@@ -47,5 +47,5 @@ export function botInput(state: BotView, course: RuntimeCourse, hold: { frames: 
   if (jump) hold.frames = 10
   const jumping = hold.frames > 0
   if (hold.frames > 0) hold.frames -= 1
-  return { left: false, right: true, jump: jumping, jumpPressed: jump, openPressed: false }
+  return { left: false, right: true, jump: jumping, jumpPressed: jump }
 }

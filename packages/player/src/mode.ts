@@ -14,10 +14,6 @@ import {
 
 export type GoalEvent = { templateId: string }
 
-export interface ModeRenderer {
-  draw(snapshot: Snapshot, course: RuntimeCourse, alpha: number): void
-}
-
 export interface GameMode {
   load(courseSpec: RuntimeCourse): void
   update(dt: number): void
@@ -30,7 +26,6 @@ const IDLE_INPUT: InputState = {
   right: false,
   jump: false,
   jumpPressed: false,
-  openPressed: false,
 }
 
 export class PlatformerMode implements GameMode {
@@ -38,8 +33,6 @@ export class PlatformerMode implements GameMode {
   private course: RuntimeCourse | null = null
   private acc = 0
   private input: InputState = { ...IDLE_INPUT }
-
-  constructor(private readonly renderer: ModeRenderer | null = null) {}
 
   load(courseSpec: RuntimeCourse, options?: { easy?: boolean; walkFrames?: WalkFrameCount; assistAfter?: number }) {
     this.course = courseSpec
@@ -80,13 +73,17 @@ export class PlatformerMode implements GameMode {
     return snapshot(this.state, this.course)
   }
 
+  alpha(): number {
+    return this.acc / PHYSICS.step
+  }
+
   update(dt: number) {
     if (!this.state || !this.course) return
     this.acc += Math.min(Math.max(dt, 0), 0.05)
     let first = true
     let guard = 0
     while (this.acc >= PHYSICS.step && guard < 5) {
-      const stepInput = first ? this.input : { ...this.input, jumpPressed: false, openPressed: false }
+      const stepInput = first ? this.input : { ...this.input, jumpPressed: false }
       first = false
       stepSim(this.state, stepInput, this.course, PHYSICS.step)
       this.acc -= PHYSICS.step
@@ -95,13 +92,11 @@ export class PlatformerMode implements GameMode {
   }
 
   render() {
-    if (!this.state || !this.course || !this.renderer) return
-    this.renderer.draw(snapshot(this.state, this.course), this.course, this.acc / PHYSICS.step)
+    return
   }
 
   onGoal(): GoalEvent | undefined {
-    if (!this.state || !this.course) return undefined
-    if (this.state.goalBeat === 'none') return undefined
+    if (!this.state?.atGoal || !this.course) return undefined
     return { templateId: this.course.templateId }
   }
 }

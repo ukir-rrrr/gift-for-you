@@ -1,26 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { nextPhase, screenOf } from '../src/phase'
+import { fold, screenOf, showingGift, type SessionPhase } from '../src/phase'
+
+const idle = { atGoal: false, assist: 'none' as const }
 
 describe('session phase', () => {
-  it('walks title, play, assist, reveal, and letter in order', () => {
-    let phase = nextPhase({ kind: 'title' }, { type: 'start' })
+  it('folds play, assist, reveal, and letter from the snapshot', () => {
+    let phase: SessionPhase = { kind: 'play' }
+    phase = fold(phase, idle, false, 0)
     expect(phase).toEqual({ kind: 'play' })
-    phase = nextPhase(phase, { type: 'fail', fails: 1, threshold: 3 })
-    expect(phase.kind).toBe('play')
-    phase = nextPhase(phase, { type: 'fail', fails: 3, threshold: 3 })
+    phase = fold(phase, { atGoal: false, assist: 'offered' }, false, 0)
     expect(phase).toEqual({ kind: 'assist' })
-    phase = nextPhase(phase, { type: 'assist-close' })
+    phase = fold(phase, { atGoal: false, assist: 'invincible' }, false, 0)
     expect(phase).toEqual({ kind: 'play' })
-    phase = nextPhase(phase, { type: 'goal' })
-    expect(phase).toEqual({ kind: 'reveal', beat: 1 })
-    phase = nextPhase(phase, { type: 'reveal-tap' })
-    expect(phase).toEqual({ kind: 'reveal', beat: 2 })
-    phase = nextPhase(phase, { type: 'reveal-advance' })
-    expect(phase).toEqual({ kind: 'reveal', beat: 3 })
-    phase = nextPhase(phase, { type: 'to-letter' })
+    phase = fold(phase, { atGoal: true, assist: 'none' }, false, 0)
+    expect(phase).toEqual({ kind: 'reveal', beat: 'prompt' })
+    phase = fold(phase, { atGoal: true, assist: 'none' }, true, 0)
+    expect(phase).toEqual({ kind: 'reveal', beat: 'show' })
+    expect(showingGift(phase)).toBe(true)
+    phase = fold(phase, { atGoal: true, assist: 'none' }, false, 1.4)
     expect(phase).toEqual({ kind: 'letter' })
-    expect(nextPhase({ kind: 'title' }, { type: 'goal' })).toEqual({ kind: 'title' })
-    expect(screenOf({ kind: 'reveal', beat: 1 })).toBe('play')
+    expect(fold({ kind: 'title' }, { atGoal: true, assist: 'none' }, true, 9)).toEqual({ kind: 'title' })
+    expect(fold({ kind: 'assist' }, { atGoal: true, assist: 'none' }, false, 0)).toEqual({
+      kind: 'reveal',
+      beat: 'prompt',
+    })
+    expect(screenOf({ kind: 'reveal', beat: 'prompt' })).toBe('play')
     expect(screenOf({ kind: 'assist' })).toBe('play')
   })
 })

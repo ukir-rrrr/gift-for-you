@@ -18,7 +18,7 @@ export type HeroLook = {
   colors?: { hair?: string; skin?: string; outfit?: string }
 }
 
-const EMPTY: InputState = { left: false, right: false, jump: false, jumpPressed: false, openPressed: false }
+const EMPTY: InputState = { left: false, right: false, jump: false, jumpPressed: false }
 
 function rgb(hex: string): [number, number, number] {
   const n = Number.parseInt(hex.slice(1), 16)
@@ -45,6 +45,7 @@ export class PlayScene extends Phaser.Scene {
   look: HeroLook = { hairId: 'hair-bob', skinId: 'skin-light', outfitId: 'outfit-shirt' }
   playing = false
   reduceFlash = false
+  giftOpen = false
   giftItemId = 'scarf'
   readInput: () => InputState = () => EMPTY
   onTick: ((dt: number) => void) | null = null
@@ -182,12 +183,13 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    if (!this.playing || !this.mode) return
+    if (!this.playing || !this.mode || !this.course) return
     const dt = delta / 1000
     this.mode.setInput(this.readInput())
     this.mode.update(dt)
-    this.mode.render()
     this.onTick?.(dt)
+    const snap = this.mode.read()
+    if (snap) this.draw(snap, this.course, this.mode.alpha())
   }
 
   draw(snap: Snapshot, course: RuntimeCourse, alpha: number) {
@@ -212,10 +214,9 @@ export class PlayScene extends Phaser.Scene {
       if (!tile) continue
       tile.x = movingPlatformX(platform, snap.time)
     }
-    const open = snap.goalBeat === 'open'
-    this.box.setVisible(!open)
+    this.box.setVisible(!this.giftOpen)
     this.box.setAlpha(glowAlpha(snap.time, this.reduceFlash))
-    this.item.setVisible(open)
-    if (open) this.item.setPosition(x, y - 26)
+    this.item.setVisible(this.giftOpen)
+    if (this.giftOpen) this.item.setPosition(x, y - 26)
   }
 }

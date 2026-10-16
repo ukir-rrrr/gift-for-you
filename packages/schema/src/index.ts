@@ -1,5 +1,7 @@
 export { allowedDomains, checkEgiftUrl, domainAllowed } from './egift'
 export type { EgiftCheck } from './egift'
 export { sanitizeDisplay, textLength } from './sanitize'
+export { parseRevealJson, revealJsonSchema } from './reveal'
+export type { ParseRevealResult, RevealJson } from './reveal'
 export { isExpired, parseShareJson, shareJsonSchema } from './share'
 export type { CatalogIndex, Difficulty, ParseResult, ShareJson } from './share'

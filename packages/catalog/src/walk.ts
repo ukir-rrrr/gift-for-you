@@ -2,6 +2,9 @@ export type Foot = 'left' | 'right'
 export type WalkFrameCount = 6 | 8
 export type PoseName = 'idle' | 'walk' | 'jump-up' | 'jump-apex' | 'jump-fall' | 'land' | 'turn'
 
+export const SHEET_FRAME_W = 16
+export const SHEET_FRAME_H = 24
+
 export type PlantFrame = {
   frame: number
   foot: Foot
@@ -58,8 +61,8 @@ export const POSE_FRAMES = {
 function plantsFrom(frames: readonly HeroFrame[]): PlantFrame[] {
   const plants: PlantFrame[] = []
   frames.forEach((frame, index) => {
-    if (frame.left.y === 23) plants.push({ frame: index, foot: 'left', localX: frame.left.x })
-    if (frame.right.y === 23) plants.push({ frame: index, foot: 'right', localX: frame.right.x })
+    if (frame.left.y === SHEET_FRAME_H - 1) plants.push({ frame: index, foot: 'left', localX: frame.left.x })
+    if (frame.right.y === SHEET_FRAME_H - 1) plants.push({ frame: index, foot: 'right', localX: frame.right.x })
   })
   return plants
 }
@@ -87,19 +90,6 @@ export function stridePx(cycle: WalkCycle): number {
   return Math.abs(right.localX - left.localX) * 2
 }
 
-export function stanceTravel(plants: readonly PlantFrame[], foot: Foot): number {
-  const mine = plants.filter((plant) => plant.foot === foot)
-  let travel = 0
-  for (let i = 1; i < mine.length; i++) {
-    travel += Math.abs(mine[i].localX - mine[i - 1].localX)
-  }
-  return travel
-}
-
-export function fullCycleStridePx(cycle: WalkCycle): number {
-  return stridePx(cycle)
-}
-
 export function cycleDurationSeconds(stride: number, speedPxPerSec: number): number {
   if (speedPxPerSec === 0) return Number.POSITIVE_INFINITY
   return stride / speedPxPerSec
@@ -123,10 +113,6 @@ export function plantedSlide(cycle: WalkCycle, foot: Foot): number {
   return worst
 }
 
-export function maxContactSlip(cycle: WalkCycle, foot: Foot): number {
-  return plantedSlide(cycle, foot)
-}
-
 export function remapWalkFrame(frame: number, from: WalkFrameCount, to: WalkFrameCount): number {
   if (from === to) return ((frame % to) + to) % to
   return Math.min(to - 1, Math.max(0, Math.floor((frame / from) * to)))
@@ -140,9 +126,6 @@ export function heroFrameFor(pose: PoseName, walkFrame: number, count: WalkFrame
   if (pose === 'walk') return walkCycle(count).frames[walkFrame % count]
   return POSE_FRAMES[pose]
 }
-
-export const SHEET_FRAME_W = 16
-export const SHEET_FRAME_H = 24
 
 export const ANIM_INDEX = {
   idle: [0, 1],

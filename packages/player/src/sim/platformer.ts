@@ -1,7 +1,7 @@
 import {
-  fullCycleStridePx,
   frameDurationSeconds,
   solidsAt,
+  stridePx,
   walkCycle,
   type RuntimeCourse,
   type WalkFrameCount,
@@ -16,8 +16,6 @@ export type Phase =
   | 'jump-apex'
   | 'jump-fall'
   | 'land'
-  | 'goal-hold'
-  | 'goal-open'
 
 export type AssistMode = 'none' | 'offered' | 'invincible' | 'float'
 
@@ -26,7 +24,6 @@ export type InputState = {
   right: boolean
   jump: boolean
   jumpPressed: boolean
-  openPressed: boolean
 }
 
 export type SimState = {
@@ -52,7 +49,7 @@ export type SimState = {
   assist: AssistMode
   collected: string[]
   popup: string[]
-  goalBeat: 'none' | 'hold' | 'open'
+  atGoal: boolean
   groundId: string | null
   easy: boolean
   walkFrames: WalkFrameCount
@@ -88,7 +85,7 @@ export function createState(
     assist: 'none',
     collected: [],
     popup: [],
-    goalBeat: 'none',
+    atGoal: false,
     groundId: null,
     easy: options?.easy ?? false,
     walkFrames: options?.walkFrames ?? 6,
@@ -147,8 +144,8 @@ export function chooseAssist(state: SimState, course: RuntimeCourse, choice: 'in
     const next = course.sections[index + 1]
     if (!next) {
       place(state, course.goal.x, course.goal.y)
-      state.goalBeat = 'hold'
-      state.phase = 'goal-hold'
+      state.atGoal = true
+      state.phase = 'idle'
     } else {
       const checkpoint = course.checkpoints.find((entry) => entry.sectionId === next.id) ?? course.checkpoints[0]
       place(state, checkpoint.x, checkpoint.y)
@@ -237,7 +234,7 @@ function resolveY(state: SimState, solids: readonly Rect[]): boolean {
 
 function advanceWalk(state: SimState, dt: number) {
   const speed = Math.abs(state.vx)
-  const stride = fullCycleStridePx(walkCycle(state.walkFrames))
+  const stride = stridePx(walkCycle(state.walkFrames))
   const frameDt = frameDurationSeconds(stride, speed, state.walkFrames)
   if (!Number.isFinite(frameDt) || speed === 0) {
     state.walkFrame = 0
@@ -254,12 +251,10 @@ function advanceWalk(state: SimState, dt: number) {
 }
 
 function updatePhase(state: SimState, dt: number, skidding: boolean, landed: boolean) {
-  if (state.goalBeat === 'hold') {
-    state.phase = 'goal-hold'
-    return
-  }
-  if (state.goalBeat === 'open') {
-    state.phase = 'goal-open'
+  if (state.atGoal) {
+    state.phase = 'idle'
+    state.vx = 0
+    state.vy = 0
     return
   }
   if (!state.grounded) {
@@ -296,16 +291,10 @@ export function stepSim(state: SimState, input: InputState, course: RuntimeCours
   state.prevY = state.y
   state.time += dt
 
-  if (state.goalBeat === 'hold' && (input.openPressed || input.jumpPressed)) {
-    state.goalBeat = 'open'
-    state.phase = 'goal-open'
-    state.vx = 0
-    return
-  }
-  if (state.goalBeat !== 'none') {
+  if (state.atGoal) {
     state.vx = 0
     state.vy = 0
-    state.phase = state.goalBeat === 'hold' ? 'goal-hold' : 'goal-open'
+    state.phase = 'idle'
     return
   }
 
@@ -399,10 +388,10 @@ export function stepSim(state: SimState, input: InputState, course: RuntimeCours
   }
 
   if (state.grounded && state.x >= course.goal.x && Math.abs(state.y - course.goal.y) <= PHYSICS.stepUp) {
-    state.goalBeat = 'hold'
+    state.atGoal = true
     state.vx = 0
     state.vy = 0
-    state.phase = 'goal-hold'
+    state.phase = 'idle'
     return
   }
 
@@ -426,7 +415,7 @@ export type Snapshot = {
   assist: AssistMode
   collected: readonly string[]
   popup: readonly string[]
-  goalBeat: 'none' | 'hold' | 'open'
+  atGoal: boolean
   sectionName: string
   easy: boolean
 }
@@ -449,7 +438,7 @@ export function snapshot(state: SimState, course: RuntimeCourse): Snapshot {
     assist: state.assist,
     collected: state.collected,
     popup: state.popup,
-    goalBeat: state.goalBeat,
+    atGoal: state.atGoal,
     sectionName: sectionAt(course, state.x).name,
     easy: state.easy,
   }

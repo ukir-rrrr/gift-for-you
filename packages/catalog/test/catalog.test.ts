@@ -10,7 +10,6 @@ import {
   catalogIndex,
   compileCourse,
   frameDurationSeconds,
-  fullCycleStridePx,
   plantedSlide,
   presetForDifficulty,
   remapWalkFrame,
@@ -33,8 +32,6 @@ describe('palette and walk', () => {
   it('measures a two-step stride and a zero-slip contact', () => {
     expect(stridePx(WALK_6)).toBe(12)
     expect(stridePx(WALK_8)).toBe(16)
-    expect(fullCycleStridePx(WALK_6)).toBe(12)
-    expect(fullCycleStridePx(WALK_8)).toBe(16)
     expect(plantedSlide(WALK_6, 'left')).toBe(0)
     expect(plantedSlide(WALK_6, 'right')).toBe(0)
     expect(plantedSlide(WALK_8, 'left')).toBe(0)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkEgiftUrl, parseShareJson, sanitizeDisplay, type CatalogIndex } from '../src/index'
+import { checkEgiftUrl, parseRevealJson, parseShareJson, sanitizeDisplay, type CatalogIndex } from '../src/index'
 
 const index: CatalogIndex = {
   templateIds: ['course-01'],
@@ -83,6 +83,19 @@ describe('parseShareJson', () => {
     const parsed = parseShareJson(sample({ to: { displayName: '彩😀' } }), index)
     expect(parsed.ok).toBe(true)
     if (parsed.ok) expect(parsed.value.to.displayName).toBe('彩')
+  })
+})
+
+describe('parseRevealJson', () => {
+  it('accepts a letter and blocks javascript egift urls', () => {
+    const parsed = parseRevealJson({
+      letter: { body: '彩へ。箱の中はマフラー。' },
+      egift: { kind: 'url', url: 'https://giftee.com/cards/demo' },
+    })
+    expect(parsed.ok).toBe(true)
+    if (parsed.ok) expect(parsed.value.letter.body).toBe('彩へ。箱の中はマフラー。')
+    expect(parseRevealJson({ letter: { body: 'あ' }, egift: { kind: 'url', url: 'javascript:alert(1)' } }).ok).toBe(false)
+    expect(parseRevealJson({ letter: { body: '' } }).ok).toBe(false)
   })
 })
 

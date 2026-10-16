@@ -1,4 +1,4 @@
-import { buildCourse01, buildCourseE2E, compileCourse, fullCycleStridePx, presetForDifficulty, walkCycle } from '@gfy/catalog'
+import { buildCourse01, buildCourseE2E, compileCourse, presetForDifficulty, stridePx, walkCycle } from '@gfy/catalog'
 import { describe, expect, it } from 'vitest'
 import { glowAlpha, glowFrequency, glowPulseCount } from '../src/fx'
 import { PlatformerMode } from '../src/mode'
@@ -8,7 +8,7 @@ import { createState, stepSim, type InputState, type SimState } from '../src/sim
 import { runReplay } from '../src/sim/replay'
 import type { RuntimeCourse } from '@gfy/catalog'
 
-const idle: InputState = { left: false, right: false, jump: false, jumpPressed: false, openPressed: false }
+const idle: InputState = { left: false, right: false, jump: false, jumpPressed: false }
 const right: InputState = { ...idle, right: true }
 
 function flat(width = 2400): RuntimeCourse {
@@ -126,7 +126,7 @@ describe('walk playback', () => {
       const state = createState(course, { walkFrames: frames })
       run(state, course, right, 90)
       expect(state.phase).toBe('walk')
-      const stride = fullCycleStridePx(walkCycle(frames))
+      const stride = stridePx(walkCycle(frames))
       const steps = Math.round(stride / PHYSICS.maxSpeed / PHYSICS.step)
       const x0 = state.x
       const frame0 = state.walkFrame
@@ -217,7 +217,7 @@ describe('course rules', () => {
             y: snap.y,
             grounded: snap.grounded,
             time: snap.time,
-            goalBeat: snap.goalBeat,
+            atGoal: snap.atGoal,
             assist: snap.assist,
           },
           course,
