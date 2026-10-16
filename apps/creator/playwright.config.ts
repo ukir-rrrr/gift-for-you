@@ -11,6 +11,10 @@ export default defineConfig({
   use: {
     viewport: { width: 390, height: 844 },
     baseURL: 'http://127.0.0.1:8081',
+    // A step that hangs fails here with its name instead of running into the whole-test timeout.
+    actionTimeout: 30000,
+    navigationTimeout: 30000,
+    trace: 'retain-on-failure',
     launchOptions: chromium,
   },
   webServer: [
