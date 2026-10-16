@@ -7,3 +7,7 @@ blob-report/
 *.log
 .DS_Store
 packages/player/e2e/screenshots/
+.wrangler/
+apps/creator/.expo/
+apps/creator/dist/
+apps/creator/e2e/screenshots/

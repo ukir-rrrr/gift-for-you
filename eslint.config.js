@@ -1,3 +1,4 @@
+import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
@@ -8,12 +9,23 @@ export default tseslint.config(
       '**/public/assets/**',
       '**/e2e/screenshots/**',
       '**/playwright-report/**',
+      '**/.wrangler/**',
+      '**/.expo/**',
+      '**/web-build/**',
     ],
   },
   ...tseslint.configs.recommended,
   {
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['apps/creator/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
 )

@@ -1,6 +1,6 @@
 # gift-for-you
 
-Phase 1 browser player. Demo gift: `/g/demo`.
+Phase 1 browser player (`packages/player`, demo gift `/g/demo`) and the Phase 2 creator app (`apps/creator`) with its gift server (`packages/server`). Phase 2 setup, flow, API, and remaining items: [`docs/phase2.md`](docs/phase2.md).
 
 ```
 pnpm install
@@ -35,10 +35,14 @@ Open `http://127.0.0.1:5173/g/demo`. Walk cycle: `C`, on-screen button, or `?wal
 
 `opened` (on はじめる) and `goal_reached` POST `{type, at}` to `/s/{id}/events` with credentials omitted. A failed POST is queued in `localStorage` (deduped, max 20) and retried on the next visit. Named crawlers and prerendered pages never send. Storage errors never stop play.
 
+## Published gifts and preview
+
+Ids that are not bundled samples load `/s/{id}/share` from the gift server, with photos from `/s/{id}/photos/{ref}`. `/preview` plays a gift handed over by the creator app (`window.__GFY_PREVIEW__` or a `postMessage` from the parent frame): no beacons, and the e-gift link goes nowhere. A passphrase-locked e-gift asks for the passphrase after the letter.
+
 ## Checks
 
 ```
-pnpm build && pnpm test && pnpm lint && pnpm typecheck && pnpm e2e
+pnpm build && pnpm test && pnpm lint && pnpm typecheck && pnpm e2e && pnpm e2e:creator
 ```
 
 `pnpm test` includes the frozen replay tapes (`packages/player/test/tapes`). If the bundled Playwright Chromium does not match, set `PW_CHROMIUM=/path/to/chromium`.

@@ -360,6 +360,30 @@ body[data-screen="boot"] #dock {
   flex: 1;
 }
 
+#unlock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+#unlock[hidden] {
+  display: none;
+}
+
+#unlock input {
+  flex: 1;
+  min-width: 8em;
+  font: inherit;
+  padding: 8px;
+}
+
+#unlock-error {
+  margin: 0;
+  width: 100%;
+  color: #6b3030;
+}
+
 #egift-code {
   margin: 0;
   white-space: pre-wrap;

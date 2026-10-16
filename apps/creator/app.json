@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "gift-for-you",
+    "slug": "gift-for-you-creator",
+    "scheme": "giftforyou",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "app.giftforyou.creator",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "思い出コインに使う写真を選びます。写真は端末で縮小し、位置情報を消してから送ります。"
+      }
+    },
+    "android": {
+      "package": "app.giftforyou.creator"
+    },
+    "web": {
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "思い出コインに使う写真を選びます。写真は端末で縮小し、位置情報を消してから送ります。",
+          "cameraPermission": false
+        }
+      ],
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

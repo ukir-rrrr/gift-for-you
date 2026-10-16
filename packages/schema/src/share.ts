@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { checkEgiftUrl } from './egift'
+import { LIMITS } from './limits'
 import { sanitizeDisplay, textLength } from './sanitize'
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
@@ -25,9 +26,9 @@ const boundedText = (max: number, min = 0) =>
       return length >= min && length <= max
     })
 
-const displayName = boundedText(12, 1)
-const message = boundedText(40, 0)
-const label = boundedText(20, 1)
+const displayName = boundedText(LIMITS.displayName, 1)
+const message = boundedText(LIMITS.coinMessage, 0)
+const label = boundedText(LIMITS.giftLabel, 1)
 
 export const shareJsonSchema = z
   .object({
@@ -56,7 +57,7 @@ export const shareJsonSchema = z
             message,
           })
           )
-      .max(10),
+      .max(LIMITS.coins),
     goal: z.object({
       revealEffectId: z.string().min(1),
       giftItem: z.object({

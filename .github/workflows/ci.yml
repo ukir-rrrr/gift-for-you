@@ -24,3 +24,34 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: packages/player
       - run: pnpm e2e
+
+  creator:
+    runs-on: ubuntu-latest
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The Worker serves the player bundle, so it has to exist before wrangler runs.
+      - run: pnpm --filter @gfy/player build
+      - name: Bundle the Worker (no deploy)
+        run: pnpm --filter @gfy/server check:wrangler
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: apps/creator
+      - name: Creator web e2e against wrangler dev
+        run: pnpm e2e:creator
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: creator-e2e
+          path: |
+            apps/creator/e2e/screenshots
+            apps/creator/test-results
+          if-no-files-found: ignore

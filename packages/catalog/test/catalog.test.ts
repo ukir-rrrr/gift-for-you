@@ -118,3 +118,11 @@ describe('course compile', () => {
     })
   })
 })
+
+describe('templates', () => {
+  it('lists every template the index accepts with its coin slot count', async () => {
+    const { TEMPLATES, catalogIndex, buildCourse01 } = await import('../src/index')
+    expect(catalogIndex().templateIds).toEqual(TEMPLATES.map((t) => t.id))
+    expect(TEMPLATES[0].coinSlots).toBe(buildCourse01().coinSlots.length)
+  })
+})

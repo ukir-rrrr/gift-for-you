@@ -6,14 +6,15 @@ import {
   type RuntimeCoin,
   type RuntimeCourse,
 } from '@gfy/catalog'
-import { checkEgiftUrl, sanitizeDisplay, type Difficulty, type ShareJson } from '@gfy/schema'
+import { checkEgiftUrl, sanitizeDisplay, type Difficulty } from '@gfy/schema'
 import Phaser from 'phaser'
 import { Music } from './audio'
 import { copy, UNAVAILABLE } from './copy'
 import { cuesBetween, loadSettings, saveSettings, type CueView } from './cues'
-import { fetchReveal, flushQueue, postEvent, type Reveal } from './net'
+import { flushQueue, postEvent, type Reveal } from './net'
 import { PlatformerMode } from './mode'
-import { loadGift, readFlags, recipientName, giftIdFromLocation } from './route'
+import { readFlags, recipientName, giftIdFromLocation } from './route'
+import { isPreviewPath, previewSource, resolveGift, waitForPreview, type GiftSource } from './source'
 import { integerScale } from './scale'
 import { fold, revealBeat, screenOf, showingGift, typedLetter, type SessionPhase } from './phase'
 import { VirtualPad, type PadKey } from './pad'
@@ -50,7 +51,11 @@ function showError() {
   must<HTMLParagraphElement>('error-text').textContent = UNAVAILABLE
 }
 
-function boot(share: ShareJson, id: string) {
+function boot(source: GiftSource) {
+  const { share, id, preview } = source
+  const beacon = (type: 'opened' | 'goal_reached') => {
+    if (!preview) void postEvent(id, type)
+  }
   const flags = readFlags(location.search)
   const diffs: Difficulty[] = ['easy', 'normal', 'hard']
   let difficulty: Difficulty = flags.difficulty ?? share.course.difficulty
@@ -169,7 +174,10 @@ function boot(share: ShareJson, id: string) {
 
   function applyChrome() {
     document.body.dataset.rec = rec ? '1' : '0'
-    must('watermark').hidden = !rec
+    const mark = must('watermark')
+    mark.hidden = !rec && !preview
+    mark.textContent = preview ? copy.previewMark : copy.watermark
+    document.body.dataset.preview = preview ? '1' : '0'
     easyButton.textContent = easy ? copy.easyOn : copy.easyOff
     diffButton.textContent = copy.difficulty[difficulty]
     walkButton.textContent = copy.walk(walkFrames)
@@ -207,7 +215,7 @@ function boot(share: ShareJson, id: string) {
     message.textContent = sanitizeDisplay(coin.message)
     photo.alt = ''
     photo.dataset.fallback = '0'
-    photo.src = `/assets/photos/${coin.photoRef}.png`
+    photo.src = source.photoUrl(coin.photoRef)
   }
 
   photo.addEventListener('error', () => {
@@ -216,32 +224,60 @@ function boot(share: ShareJson, id: string) {
     photo.src = '/assets/photos/placeholder.png'
   })
 
+  const unlockForm = must<HTMLFormElement>('unlock')
+  const unlockInput = must<HTMLInputElement>('unlock-input')
+  const unlockError = must<HTMLParagraphElement>('unlock-error')
+
+  function showEgift() {
+    const gift = reveal?.egift
+    const locked = Boolean(gift?.locked)
+    const url = locked ? undefined : gift?.url
+    const code = !locked && gift?.kind === 'code' ? gift.code : undefined
+    const claim = must<HTMLButtonElement>('btn-egift')
+    const codeBox = must<HTMLParagraphElement>('egift-code')
+    claim.hidden = rec || !url
+    unlockForm.hidden = rec || !locked
+    if (!rec && code) {
+      codeBox.hidden = false
+      codeBox.textContent = `${copy.code} ${sanitizeDisplay(code)}`
+    } else {
+      codeBox.hidden = true
+      codeBox.textContent = ''
+    }
+  }
+
+  unlockForm.addEventListener('submit', (event) => {
+    event.preventDefault()
+    const attempt = unlockInput.value.trim()
+    if (!attempt || !reveal) return
+    unlockError.textContent = ''
+    void source.unlock(attempt).then((result) => {
+      if (!reveal) return
+      if (result.ok) {
+        reveal = { ...reveal, egift: result.egift }
+        unlockInput.value = ''
+        showEgift()
+        return
+      }
+      unlockError.textContent = copy.unlockError[result.reason]
+    })
+  })
+
   async function openLetter() {
     if (session.kind !== 'letter') return
     letter.hidden = false
     must('title').hidden = true
     try {
-      reveal = await fetchReveal(id)
+      reveal = await source.reveal()
       letterFull = reveal.letter.body
       letterTime = 0
       letterDone = false
       delete letter.dataset.typed
       letterBody.textContent = ''
       retry.hidden = true
-      const url = reveal.egift?.url
-      const code = reveal.egift?.kind === 'code' ? reveal.egift.code : undefined
-      const claim = must<HTMLButtonElement>('btn-egift')
-      const codeBox = must<HTMLParagraphElement>('egift-code')
-      claim.hidden = rec || !url
-      if (!rec && code) {
-        codeBox.hidden = false
-        codeBox.textContent = `${copy.code} ${sanitizeDisplay(code)}`
-      } else {
-        codeBox.hidden = true
-        codeBox.textContent = ''
-      }
+      showEgift()
       // The e-gift waits until the letter has finished typing.
-      egiftReady = !rec && Boolean(url || code)
+      egiftReady = !rec && Boolean(reveal.egift && (reveal.egift.locked || reveal.egift.url || reveal.egift.code))
       egift.hidden = true
     } catch {
       retry.hidden = false
@@ -299,7 +335,7 @@ function boot(share: ShareJson, id: string) {
     }
     if (snap.atGoal && !goalSent) {
       goalSent = true
-      void postEvent(id, 'goal_reached')
+      beacon('goal_reached')
     }
     if (session.kind === 'letter' && letterFull && !letterDone) {
       letterTime += dt
@@ -322,7 +358,7 @@ function boot(share: ShareJson, id: string) {
     session = { kind: 'play' }
     applyScreen()
     music.unlock()
-    void postEvent(id, 'opened')
+    beacon('opened')
     scene.playing = true
     applyChrome()
     fit()
@@ -405,13 +441,19 @@ function boot(share: ShareJson, id: string) {
     go.hidden = check.status === 'block'
     go.rel = 'noopener noreferrer'
     go.target = '_blank'
-    if (check.status !== 'block') {
+    // The creator's preview shows the same confirm screen, but the link goes nowhere.
+    if (preview) {
+      go.removeAttribute('href')
+      go.dataset.preview = '1'
+      go.textContent = copy.previewLink
+    } else if (check.status !== 'block') {
       go.href = url
       go.textContent = check.status === 'warn' ? copy.openAnyway : copy.openLink
     }
     confirm.hidden = false
   })
-  must('confirm-go').addEventListener('click', () => {
+  must('confirm-go').addEventListener('click', (event) => {
+    if (preview) event.preventDefault()
     confirm.hidden = true
   })
   must('confirm-cancel').addEventListener('click', () => {
@@ -488,13 +530,20 @@ function boot(share: ShareJson, id: string) {
   applyChrome()
   document.body.dataset.screen = 'title'
   rotate()
-  void flushQueue()
+  if (!preview) void flushQueue()
 }
 
-const giftId = giftIdFromLocation(window.location)
-if (!giftId) showError()
-else {
-  const gift = loadGift(giftId)
-  if (!gift.ok) showError()
-  else boot(gift.share, gift.id)
+async function start() {
+  if (isPreviewPath(window.location.pathname)) {
+    const source = previewSource(await waitForPreview())
+    if (source) boot(source)
+    else showError()
+    return
+  }
+  const giftId = giftIdFromLocation(window.location)
+  const source = giftId ? await resolveGift(giftId) : null
+  if (source) boot(source)
+  else showError()
 }
+
+void start()

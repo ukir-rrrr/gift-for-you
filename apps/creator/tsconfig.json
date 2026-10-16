@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": ["node"]
+  },
+  "include": ["app", "src", "test", "e2e", "*.ts", "expo-env.d.ts"]
+}
