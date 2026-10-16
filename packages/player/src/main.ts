@@ -1,6 +1,7 @@
 import {
   buildCourse01,
   buildCourseE2E,
+  buildCourseFor,
   compileCourse,
   presetForDifficulty,
   type RuntimeCoin,
@@ -64,7 +65,8 @@ function boot(source: GiftSource) {
     photoRef: coin.photoRef,
     message: sanitizeDisplay(coin.message),
   }))
-  const template = flags.e2e ? buildCourseE2E() : buildCourse01()
+  const templateId = (flags.template && buildCourseFor(flags.template) ? flags.template : null) ?? share.course.templateId
+  const template = flags.e2e ? { ...buildCourseE2E(), id: templateId } : (buildCourseFor(templateId) ?? buildCourse01())
   let course = compileCourse(template, presetForDifficulty(difficulty), coins)
   const scene = new PlayScene()
   const mode = new PlatformerMode()

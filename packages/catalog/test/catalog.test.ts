@@ -126,3 +126,38 @@ describe('templates', () => {
     expect(TEMPLATES[0].coinSlots).toBe(buildCourse01().coinSlots.length)
   })
 })
+
+describe('phase 3 catalog (F3-01, F3-02)', () => {
+  it('ships three themed templates built from course data', async () => {
+    const { TEMPLATES, COURSE_DEFS, buildCourseFor, THEMES } = await import('../src/index')
+    expect(TEMPLATES.map((t) => t.id)).toEqual(['course-01', 'course-02', 'course-03'])
+    expect(new Set(TEMPLATES.map((t) => t.theme)).size).toBe(3)
+    for (const template of TEMPLATES) {
+      const course = buildCourseFor(template.id)!
+      expect(course.id).toBe(template.id)
+      expect(course.coinSlots).toHaveLength(template.coinSlots)
+      expect(course.sections).toHaveLength(3)
+      expect(course.slots.map((slot) => slot.id)).toEqual(['obs-1', 'obs-2', 'obs-3', 'obs-4', 'obs-5', 'obs-6', 'obs-7', 'obs-8'])
+      expect(THEMES[template.theme]).toBeTruthy()
+      // Roughly two minutes at 60 px/s.
+      expect(course.width / 60).toBeGreaterThan(100)
+      expect(course.width / 60).toBeLessThan(130)
+    }
+    expect(COURSE_DEFS).toHaveLength(3)
+    expect(buildCourseFor('nope')).toBeNull()
+  })
+
+  it('keeps course-01 exactly as Phase 1 built it', async () => {
+    const course = buildCourse01()
+    expect(course.checkpoints.map((cp) => cp.id)).toEqual(['cp-meet', 'cp-memory', 'cp-hill'])
+    expect(course.goal).toEqual({ x: 6802, y: GROUND_Y - 48 })
+  })
+
+  it('lists about twenty gift items with unique ids in known categories', async () => {
+    const { GIFT_ITEMS, GIFT_CATEGORIES } = await import('../src/index')
+    expect(GIFT_ITEMS.length).toBe(20)
+    expect(new Set(GIFT_ITEMS.map((item) => item.id)).size).toBe(GIFT_ITEMS.length)
+    const categories = new Set(GIFT_CATEGORIES.map((c) => c.id))
+    for (const item of GIFT_ITEMS) expect(categories.has(item.category)).toBe(true)
+  })
+})

@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { OUTLINE, PALETTE, SKY } from '@gfy/catalog'
 import { PNG } from 'pngjs'
+import { ITEM_SPRITES, LEGEND } from './item-sprites'
 
 // Hero, tiles, props, pedestal and parallax come from the hand-made pack in
 // public/assets/gfy; this script only draws items, photos and small fx.
@@ -154,6 +155,77 @@ function items() {
   }, 'pendant')
 }
 
+/** Phase 3 items: character maps, centred, standing on row 21. */
+function spriteItems() {
+  for (const [name, rows] of Object.entries(ITEM_SPRITES)) {
+    const width = Math.max(...rows.map((row) => row.length))
+    if (width > 24 || rows.length > 22) throw new Error(`${name} does not fit 24x24`)
+    const left = Math.floor((24 - width) / 2)
+    const top = 22 - rows.length
+    itemPng((image) => {
+      rows.forEach((row, y) => {
+        for (const [x, ch] of [...row].entries()) {
+          if (ch === '.') continue
+          const color = LEGEND[ch]
+          if (!color) throw new Error(`${name}: unknown colour key ${ch}`)
+          paintHex(image, left + x, top + y, color)
+        }
+      })
+    }, name)
+  }
+}
+
+/**
+ * Link-preview image (F3-08). Generic on purpose: no names, photos, or messages, so a shared link
+ * never shows anything personal in a chat preview.
+ */
+function ogImage() {
+  const w = 1200
+  const h = 630
+  const image = png(w, h)
+  const fill = (x0: number, y0: number, rw: number, rh: number, color: string) => {
+    for (let y = Math.max(0, y0); y < Math.min(h, y0 + rh); y++) for (let x = Math.max(0, x0); x < Math.min(w, x0 + rw); x++) paintHex(image, x, y, color)
+  }
+  fill(0, 0, w, h, SKY)
+  fill(0, 470, w, 160, '#5a7a4a')
+  fill(0, 470, w, 12, '#3a4a38')
+  // Hills in big pixels.
+  for (let i = 0; i < 12; i++) {
+    const x = i * 110 - 20
+    const top = 380 + ((i * 37) % 60)
+    fill(x, top, 130, 470 - top, '#6d7f6a')
+  }
+  // A wrapped gift box on a pedestal, drawn with 20 px pixels.
+  const px = 20
+  const box = [
+    '....yy..yy....',
+    '...y..yy..y...',
+    '....yyyyyy....',
+    '.KKKKKKKKKKKK.',
+    '.KRRRRyyRRRRK.',
+    '.KRRRRyyRRRRK.',
+    '.KyyyyyyyyyyK.',
+    '.KRRRRyyRRRRK.',
+    '.KRRRRyyRRRRK.',
+    '.KRRRRyyRRRRK.',
+    '.KKKKKKKKKKKK.',
+    'KwwwwwwwwwwwwK',
+    'KKKKKKKKKKKKKK',
+  ]
+  const colors: Record<string, string> = { K: OUTLINE, R: '#6b3030', y: '#c9a36a', w: '#d8c9b0' }
+  const ox = Math.floor((w - box[0].length * px) / 2)
+  const oy = 470 - box.length * px
+  box.forEach((row, y) => {
+    for (const [x, ch] of [...row].entries()) if (ch !== '.') fill(ox + x * px, oy + y * px, px, px, colors[ch])
+  })
+  for (const [x, y] of [[300, 120], [880, 90], [1010, 220], [180, 260], [760, 200]]) {
+    fill(x, y, 20, 20, '#c5d4dc')
+    fill(x - 20, y + 20, 60, 20, '#c5d4dc')
+    fill(x, y + 40, 20, 20, '#c5d4dc')
+  }
+  write(join(root, '../og.png'), image)
+}
+
 function rectHex(image: PNG, x: number, y: number, w: number, h: number, color: string) {
   for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) paintHex(image, xx, yy, color)
 }
@@ -241,6 +313,8 @@ function photos() {
 spark()
 ray()
 items()
+spriteItems()
+ogImage()
 token()
 frame()
 photos()

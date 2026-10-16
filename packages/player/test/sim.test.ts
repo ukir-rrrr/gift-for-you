@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { buildCourse01, buildCourseE2E, compileCourse, presetForDifficulty, stridePx, walkCycle, WALKER_H, WALKER_W } from '@gfy/catalog'
+import { COURSE_DEFS, buildCourse, buildCourse01, buildCourseE2E, compileCourse, presetForDifficulty, stridePx, walkCycle, WALKER_H, WALKER_W } from '@gfy/catalog'
 import { describe, expect, it } from 'vitest'
 import { glowAlpha, glowFrequency, glowPulseCount } from '../src/fx'
 import { PlatformerMode } from '../src/mode'
@@ -300,6 +300,33 @@ describe('recorded clears', () => {
     const seconds = (steps + 1) / 60
     expect(seconds).toBeGreaterThan(90)
     expect(seconds).toBeLessThan(150)
+  })
+})
+
+describe('recorded clears on every template (F3-01)', () => {
+  const cases = COURSE_DEFS.flatMap((def) => (['easy', 'normal', 'hard'] as const).map((difficulty) => [def.id, difficulty] as const))
+
+  it.each(cases)('replays the frozen %s %s tape onto the gift', (courseId, difficulty) => {
+    const def = COURSE_DEFS.find((entry) => entry.id === courseId)!
+    const name = courseId === 'course-01' ? `${difficulty}.json` : `${courseId}-${difficulty}.json`
+    const tape = JSON.parse(readFileSync(join(import.meta.dirname, `tapes/${name}`), 'utf8')) as TapeChunk[]
+    const coins = def.coins.map((coin) => ({ order: coin.order, photoRef: `photo-${coin.order}`, message: String(coin.order) }))
+    const course = compileCourse(buildCourse(def), presetForDifficulty(difficulty), coins)
+    const state = createState(course)
+    const steps = runTape((input) => {
+      stepSim(state, input, course, PHYSICS.step)
+      return state.atGoal
+    }, tape, 60 * 170)
+    expect(state.atGoal).toBe(true)
+    expect(state.fails).toBe(0)
+    expect(state.collected).toHaveLength(coins.length)
+    // About two minutes each.
+    const seconds = (steps + 1) / 60
+    expect(seconds).toBeGreaterThan(100)
+    expect(seconds).toBeLessThan(130)
+    // Three sections, each with its own checkpoint.
+    expect(course.sections).toHaveLength(3)
+    expect(new Set(course.checkpoints.map((cp) => cp.sectionId)).size).toBe(3)
   })
 })
 

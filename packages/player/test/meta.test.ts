@@ -2,9 +2,9 @@ import { PNG } from 'pngjs'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ART_PALETTE, PALETTE } from '@gfy/catalog'
+import { ART_PALETTE, GIFT_ITEMS, PALETTE } from '@gfy/catalog'
 import { UNAVAILABLE } from '../src/copy'
-import { giftIdFromLocation, loadGift } from '../src/route'
+import { giftIdFromLocation, loadGift, readFlags } from '../src/route'
 import { integerScale } from '../src/scale'
 
 const assets = join(import.meta.dirname, '../public/assets')
@@ -72,6 +72,18 @@ describe('art', () => {
     expectPalette(pack, packAllowed)
   })
 
+  it('draws every catalog gift item and a generic link-preview image on the palette (F3-02, F3-08)', () => {
+    expect(GIFT_ITEMS.length).toBeGreaterThanOrEqual(20)
+    for (const item of GIFT_ITEMS) {
+      const image = PNG.sync.read(readFileSync(join(assets, 'items', `${item.id}.png`)))
+      expect([image.width, image.height], item.id).toEqual([24, 24])
+    }
+    const og = join(assets, '..', 'og.png')
+    expectPalette([og], allowed)
+    const image = PNG.sync.read(readFileSync(og))
+    expect([image.width, image.height]).toEqual([1200, 630])
+  })
+
   it('stands the hero 28px tall on the bottom row and strips photo metadata', () => {
     for (const [sheet, frames] of [['hero_walk', 8], ['hero_idle', 2]] as const) {
       const image = PNG.sync.read(readFileSync(join(packDir, `${sheet}.png`)))
@@ -103,6 +115,20 @@ describe('gift routing', () => {
     expect(giftIdFromLocation({ pathname: '/g/%E0%A4', hash: '' })).toBeNull()
     expect(giftIdFromLocation({ pathname: '/', hash: '#/g/%' })).toBeNull()
     expect(giftIdFromLocation({ pathname: '/g/demo', hash: '' })).toBe('demo')
+  })
+})
+
+describe('flags', () => {
+  it('reads a course template override and ignores anything else', () => {
+    expect(readFlags('?template=course-02').template).toBe('course-02')
+    expect(readFlags('?template=../x').template).toBeNull()
+    expect(readFlags('').template).toBeNull()
+  })
+
+  it('ships generic link-preview tags without any gift data (F3-08)', () => {
+    const html = readFileSync(join(import.meta.dirname, '../index.html'), 'utf8')
+    expect(html).toContain('<meta property="og:image" content="/og.png" />')
+    expect(html).toContain('og:title" content="小さな冒険のギフトが届いています"')
   })
 })
 

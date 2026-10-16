@@ -9,20 +9,26 @@ import offlistShare from '../samples/offlist.share.json'
 import demoReveal from '../samples/demo.reveal.json'
 import offlistReveal from '../samples/offlist.reveal.json'
 
-export { CATALOG_VERSION, GIFT_ITEMS, giftItem } from './gifts'
-export type { GiftItemId } from './gifts'
+export { CATALOG_VERSION, GIFT_CATEGORIES, GIFT_ITEMS, giftItem } from './gifts'
+export type { GiftCategory, GiftItemId } from './gifts'
 export { HERO_PARTS, DEFAULT_HERO, heroPart } from './hero'
 export type { HeroPart, PartKind } from './hero'
 export { ART_PALETTE, PALETTE, SKY, HILL, GRASS, OUTLINE, INK, isPaletteHex } from './palette'
 export type { PaletteHex } from './palette'
-export { DIFFICULTIES, TEMPLATES, templateById } from './templates'
-export type { TemplateInfo } from './templates'
+export { DIFFICULTIES, TEMPLATES, THEMES, templateById, themeOf } from './templates'
+export type { TemplateInfo, Theme, ThemeId } from './templates'
+export { GAME_MODES } from './modes'
+export type { GameModeInfo } from './modes'
 export { PRESETS, presetById, presetForDifficulty } from './presets'
 export type { ObstacleFill, ObstaclePreset } from './presets'
 export {
   GROUND_Y,
   COURSE_HEIGHT,
   COURSE_01_BEATS,
+  COURSE_01,
+  COURSE_02,
+  COURSE_03,
+  COURSE_DEFS,
   WALKER_W,
   WALKER_H,
   THORN_H,
@@ -30,10 +36,12 @@ export {
   PLATFORM_H,
   STEP_W,
   STEP_RUN,
+  buildCourse,
   buildCourse01,
+  buildCourseFor,
   buildCourseE2E,
 } from './course'
-export type { CourseTemplate, Rect } from './course'
+export type { CourseDef, CourseTemplate, Rect, Terrace } from './course'
 export { compileCourse, moversOf, oscillatorFacing, oscillatorX, solidsAt } from './compile'
 export type { CoinInput, Mover, MoverRole, RuntimeCoin, RuntimeCourse } from './compile'
 export {

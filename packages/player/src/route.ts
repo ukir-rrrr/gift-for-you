@@ -7,6 +7,8 @@ export type Flags = {
   rec: boolean
   walk: 6 | 8 | null
   difficulty: 'easy' | 'normal' | 'hard' | null
+  /** Plays the gift on another course template (preview and e2e); unknown ids are ignored. */
+  template: string | null
 }
 
 function decodeGiftId(raw: string): string | null {
@@ -36,6 +38,7 @@ export function readFlags(search: string): Flags {
     rec: params.get('rec') === '1',
     walk: walk === '8' ? 8 : walk === '6' ? 6 : null,
     difficulty: difficulty === 'easy' || difficulty === 'normal' || difficulty === 'hard' ? difficulty : null,
+    template: /^course-[0-9]{2}$/.test(params.get('template') ?? '') ? params.get('template') : null,
   }
 }
 
