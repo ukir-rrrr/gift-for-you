@@ -122,3 +122,10 @@ describe('checkEgiftUrl', () => {
     expect(checkEgiftUrl('https://www.www.bit.ly/abc').status).toBe('block')
   })
 })
+
+describe('reveal lock', () => {
+  it('keeps the locked flag so the player can ask for the passphrase', () => {
+    const parsed = parseRevealJson({ letter: { body: 'こんにちは' }, egift: { kind: 'code', locked: true } })
+    expect(parsed.ok && parsed.value.egift).toEqual({ kind: 'code', locked: true })
+  })
+})

@@ -2,6 +2,7 @@ import type { CatalogIndex } from '@gfy/schema'
 import { BGM_IDS, GIFT_ITEMS, REVEAL_IDS } from './gifts'
 import { HERO_PARTS } from './hero'
 import { PALETTE } from './palette'
+import { TEMPLATES } from './templates'
 import demoShare from '../samples/demo.share.json'
 import expiredShare from '../samples/expired.share.json'
 import offlistShare from '../samples/offlist.share.json'
@@ -14,6 +15,8 @@ export { HERO_PARTS, DEFAULT_HERO, heroPart } from './hero'
 export type { HeroPart, PartKind } from './hero'
 export { ART_PALETTE, PALETTE, SKY, HILL, GRASS, OUTLINE, INK, isPaletteHex } from './palette'
 export type { PaletteHex } from './palette'
+export { DIFFICULTIES, TEMPLATES, templateById } from './templates'
+export type { TemplateInfo } from './templates'
 export { PRESETS, presetById, presetForDifficulty } from './presets'
 export type { ObstacleFill, ObstaclePreset } from './presets'
 export {
@@ -52,7 +55,7 @@ export type { Foot, FootPose, HeroFrame, PlantFrame, PoseName, WalkCycle, WalkFr
 
 export function catalogIndex(): CatalogIndex {
   return {
-    templateIds: ['course-01'],
+    templateIds: TEMPLATES.map((template) => template.id),
     itemIds: GIFT_ITEMS.map((item) => item.id),
     revealIds: [...REVEAL_IDS],
     bgmIds: [...BGM_IDS],

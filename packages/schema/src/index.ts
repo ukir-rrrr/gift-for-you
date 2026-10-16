@@ -1,3 +1,4 @@
+export { LIMITS, SHARE_TTL_DAYS } from './limits'
 export { allowedDomains, checkEgiftUrl, domainAllowed } from './egift'
 export type { EgiftCheck } from './egift'
 export { sanitizeDisplay, textLength } from './sanitize'

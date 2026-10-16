@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { checkEgiftUrl } from './egift'
+import { LIMITS } from './limits'
 import { sanitizeDisplay, textLength } from './sanitize'
 
 const letterBody = z
@@ -7,7 +8,7 @@ const letterBody = z
   .transform(sanitizeDisplay)
   .refine((value) => {
     const length = textLength(value)
-    return length >= 1 && length <= 500
+    return length >= 1 && length <= LIMITS.letter
   })
 
 export const revealJsonSchema = z
@@ -19,9 +20,11 @@ export const revealJsonSchema = z
         url: z.string().optional(),
         code: z
           .string()
-          .max(80)
+          .max(LIMITS.egiftCode)
           .transform(sanitizeDisplay)
           .optional(),
+        /** Set by the server while a passphrase still hides the URL or code. */
+        locked: z.boolean().optional(),
       })
       .optional(),
   })
