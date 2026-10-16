@@ -10,6 +10,7 @@ import { checkEgiftUrl, sanitizeDisplay, type Difficulty, type ShareJson } from 
 import Phaser from 'phaser'
 import { Music } from './audio'
 import { copy, UNAVAILABLE } from './copy'
+import { cuesBetween, loadSettings, saveSettings, type CueView } from './cues'
 import { fetchReveal, flushQueue, postEvent, type Reveal } from './net'
 import { PlatformerMode } from './mode'
 import { loadGift, readFlags, recipientName, giftIdFromLocation } from './route'
@@ -28,6 +29,14 @@ function must<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id)
   if (!node) throw new Error(`missing #${id}`)
   return node as T
+}
+
+function localStore(): Storage | null {
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
 }
 
 function showError() {
@@ -51,10 +60,16 @@ function boot(share: ShareJson, id: string) {
   let course = compileCourse(template, presetForDifficulty(difficulty), coins)
   const scene = new PlayScene()
   const mode = new PlatformerMode()
-  const music = new Music()
+  const settings = loadSettings(
+    { muted: false, reduceFlash: window.matchMedia('(prefers-reduced-motion: reduce)').matches },
+    localStore(),
+  )
+  const music = new Music(settings.muted)
   let walkFrames: 6 | 8 = flags.walk ?? 6
   let easy = flags.easy || flags.e2e || share.course.assist.easyModeDefault
-  let reduceFlash = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  let reduceFlash = settings.reduceFlash
+  let lastCue: CueView | null = null
+  let typedCount = 0
   const rec = flags.rec || share.options?.recordingModeDefault === true
   let session: SessionPhase = { kind: 'title' }
   let goalSent = false
@@ -153,7 +168,10 @@ function boot(share: ShareJson, id: string) {
     diffButton.textContent = copy.difficulty[difficulty]
     walkButton.textContent = copy.walk(walkFrames)
     muteButton.textContent = music.isMuted ? copy.soundOff : copy.soundOn
+    muteButton.setAttribute('aria-pressed', String(music.isMuted))
     flashButton.textContent = reduceFlash ? copy.flashOff : copy.flashOn
+    flashButton.setAttribute('aria-pressed', String(reduceFlash))
+    document.body.dataset.flash = reduceFlash ? 'reduced' : 'on'
     scene.reduceFlash = reduceFlash
   }
 
@@ -226,6 +244,9 @@ function boot(share: ShareJson, id: string) {
     music.update(dt)
     const snap = mode.read()
     if (!snap) return
+    const cueView: CueView = { ...snap, collected: [...snap.collected], stomped: [...snap.stomped] }
+    for (const cue of cuesBetween(lastCue, cueView)) music.play(cue)
+    lastCue = cueView
     section.replaceChildren()
     const chip = document.createElement('span')
     chip.textContent = snap.sectionName
@@ -252,11 +273,18 @@ function boot(share: ShareJson, id: string) {
     const opened = edge.open
     edge.open = false
     session = fold(prev, { atGoal: snap.atGoal, assist: snap.assist }, opened, beatFor)
-    if (revealBeat(session) !== beatBefore) beatFor = 0
+    if (revealBeat(session) !== beatBefore) {
+      beatFor = 0
+      if (revealBeat(session) === 'burst') music.play('open')
+    }
     scene.revealBeat = revealBeat(session)
     scene.beatTime = beatFor
     paint()
-    if (session.kind === 'letter' && prev.kind !== 'letter') void openLetter()
+    if (session.kind === 'letter' && prev.kind !== 'letter') {
+      music.setBgm(false)
+      typedCount = 0
+      void openLetter()
+    }
     if (snap.atGoal && !goalSent) {
       goalSent = true
       void postEvent(id, 'goal_reached')
@@ -265,6 +293,9 @@ function boot(share: ShareJson, id: string) {
       letterTime += dt
       const typed = typedLetter(letterFull, letterTime)
       letterBody.textContent = typed.text
+      const count = [...typed.text].length
+      if (Math.floor(count / 3) > Math.floor(typedCount / 3)) music.play('type')
+      typedCount = count
       if (typed.done) {
         letterDone = true
         letter.dataset.typed = '1'
@@ -316,6 +347,8 @@ function boot(share: ShareJson, id: string) {
     scene.mount(mode, course, share.goal.giftItem.itemId)
     goalSent = false
     beatFor = 0
+    lastCue = null
+    music.setBgm(true)
     popupId = ''
     popupLeft = 0
     memory.hidden = true
@@ -333,12 +366,15 @@ function boot(share: ShareJson, id: string) {
     mode.setWalkFrames(walkFrames)
     applyChrome()
   })
+  const persist = () => saveSettings({ muted: music.isMuted, reduceFlash }, localStore())
   muteButton.addEventListener('click', () => {
     music.toggle()
+    persist()
     applyChrome()
   })
   flashButton.addEventListener('click', () => {
     reduceFlash = !reduceFlash
+    persist()
     applyChrome()
   })
   must('btn-egift').addEventListener('click', () => {
