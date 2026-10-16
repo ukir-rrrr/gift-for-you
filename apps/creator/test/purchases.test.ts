@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Api } from '../src/lib/api'
 import { purchaseAndPublish } from '../src/lib/publish'
-import { dropPending, loadPending, PurchaseCancelled, savePending, settlePurchases, type Store } from '../src/lib/purchases'
+import { dropPending, loadPending, PurchaseCancelled, RECEIPT_SYNC_TRIES, savePending, settlePurchases, type Store } from '../src/lib/purchases'
 import { memoryKV, wipeLocalData } from '../src/lib/storage'
 
 type Handler = (method: string, path: string, body: unknown) => { status: number; body: unknown }
@@ -139,6 +139,23 @@ describe('F3-03 purchase flow in the app', () => {
     expect(synced).toEqual([])
     for (const tx of ['c', 'l', 'u']) await dropPending(kv, tx)
     expect(await loadPending(kv)).toEqual([])
+  })
+})
+
+describe('store transactions refused with receipt', () => {
+  it('hands one over on a limited number of starts, then stops', async () => {
+    const kv = memoryKV()
+    let calls = 0
+    const { api } = server((method, path) => {
+      if (method === 'POST' && path === '/api/purchases') {
+        calls += 1
+        return { status: 402, body: { error: 'purchase_invalid', reason: 'receipt' } }
+      }
+      return { status: 200, body: { purchases: [] } }
+    })
+    const store: Store = { label: 't', purchase: vi.fn(), transactions: async () => [{ platform: 'ios', transactionId: 'never-listed' }] }
+    for (let start = 0; start < RECEIPT_SYNC_TRIES + 3; start += 1) await settlePurchases(api, kv, store)
+    expect(calls).toBe(RECEIPT_SYNC_TRIES)
   })
 })
 

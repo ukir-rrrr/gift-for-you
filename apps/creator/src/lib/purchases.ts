@@ -28,6 +28,19 @@ export function fallbackProducts(): StoreProduct[] {
 
 const PENDING_KEY = 'gfy:pending-purchases:v1'
 const SYNCED_KEY = 'gfy:synced-transactions:v1'
+const RECEIPT_TRIES_KEY = 'gfy:receipt-tries:v1'
+
+/** Starts on which a store transaction refused with "receipt" is handed over again before giving up. */
+export const RECEIPT_SYNC_TRIES = 10
+
+async function readTries(kv: KV): Promise<Record<string, number>> {
+  try {
+    const parsed = JSON.parse((await kv.getItem(RECEIPT_TRIES_KEY)) ?? '{}') as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, number>) : {}
+  } catch {
+    return {}
+  }
+}
 
 /** A paid transaction the server has not taken yet, kept until it has. */
 export type PendingPurchase = { giftId: string; proof: PurchaseProof; at: number }
@@ -101,6 +114,7 @@ export async function settlePurchases(api: Api, kv: KV, store?: Store, now = Dat
   }
   if (store?.transactions) {
     const synced = new Set(await readList<string>(kv, SYNCED_KEY))
+    const receiptTries = await readTries(kv)
     try {
       for (const proof of await store.transactions()) {
         if (synced.has(proof.transactionId)) continue
@@ -110,12 +124,20 @@ export async function settlePurchases(api: Api, kv: KV, store?: Store, now = Dat
         } catch (error) {
           // Refused for good (another user's, refunded, wrong product): not retried on every start.
           if (!retryable(error)) synced.add(proof.transactionId)
+          // A "receipt" refusal is retried on a limited number of starts, then given up like a stale pending one.
+          else if (error instanceof ApiError && error.code === 'purchase_invalid') {
+            const tries = (receiptTries[proof.transactionId] ?? 0) + 1
+            receiptTries[proof.transactionId] = tries
+            if (tries >= RECEIPT_SYNC_TRIES) synced.add(proof.transactionId)
+          }
         }
       }
     } catch {
       // The store could not answer; try again next time.
     }
+    for (const id of Object.keys(receiptTries)) if (synced.has(id)) delete receiptTries[id]
     await kv.setItem(SYNCED_KEY, JSON.stringify([...synced].slice(-200)))
+    await kv.setItem(RECEIPT_TRIES_KEY, JSON.stringify(receiptTries))
   }
   try {
     return await api.unclaimedPurchases()
