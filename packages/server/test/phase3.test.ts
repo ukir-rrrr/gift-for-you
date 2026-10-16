@@ -419,6 +419,18 @@ describe('F3-12 UGC, accounts, and deletion', () => {
     expect((await ctx.request(`/s/${third.shareId}/reveal`)).status).toBe(200)
   })
 
+  it('limits blocks and e-gift opens per address', async () => {
+    const ctx = setup()
+    const { shareId } = await publish(ctx)
+    const ip = { 'cf-connecting-ip': '203.0.113.50' }
+    const codes = []
+    for (let i = 0; i < 31; i += 1) codes.push((await post(ctx, `/s/${shareId}/block`, { viewer: `viewer-key-${String(i).padStart(16, '0')}` }, { headers: ip })).status)
+    expect(codes.slice(0, 30).every((code) => code === 204)).toBe(true)
+    expect(codes[30]).toBe(429)
+    for (let i = 0; i < 40; i += 1) await post(ctx, `/s/${shareId}/events`, { type: 'egift_opened' }, { headers: ip })
+    expect((await events(ctx)).filter((e) => e.name === 'egift_opened')).toHaveLength(30)
+  })
+
   it('links two devices with one sign-in, then deletes the account with every gift, photo, and key', async () => {
     const ctx = setup({ SIGNIN: 'mock' })
     const phone = deviceKey()

@@ -35,6 +35,7 @@
     "APPLE_AUDIENCE": "",
     "GOOGLE_AUDIENCES": "",
     "REPORT_HIDE_THRESHOLD": "3",
+    // "1" on purpose: App Review buys with sandbox accounts. Sandbox purchases are counted apart in /admin.
     "REVENUECAT_ALLOW_SANDBOX": "1"
   },
   "observability": { "enabled": true }

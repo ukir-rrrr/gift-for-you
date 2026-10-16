@@ -63,6 +63,8 @@ const REVOKE_TRIES = { max: 10, windowMs: 3600_000 }
 const REPORT_TRIES = { max: 10, windowMs: 3600_000 }
 const REMOVAL_TRIES = { max: 5, windowMs: 3600_000 }
 const ANALYTICS_TRIES = { max: 60, windowMs: 3600_000 }
+/** Per address, for public writes that need no key (e-gift opens, blocks). */
+const PUBLIC_EVENT_TRIES = { max: 30, windowMs: 3600_000 }
 const PHOTO_REF = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const SHARE_ID = /^[0-9A-Za-z]{10}$/
 const VIEWER_KEY = /^[A-Za-z0-9_-]{22,64}$/
@@ -450,7 +452,8 @@ export function createApp(options: AppOptions = {}) {
         .run()
       row = await db.prepare('SELECT * FROM purchases WHERE transaction_id = ?').bind(result.transactionId).first<PurchaseRow>()
     }
-    if (!row || (row.app_user_id !== null && row.app_user_id !== appUserId)) return fail(c, 409, 'purchase_used')
+    // Strict: a row with no owner (its account was deleted) is not anyone's to claim.
+    if (!row || row.app_user_id !== appUserId) return fail(c, 409, 'purchase_used')
     if (row.refunded_at !== null) return fail(c, 402, 'purchase_invalid', { reason: 'refunded' })
     const tier = tierByProduct(row.product_id)
     if (!tier) return fail(c, 402, 'purchase_invalid', { reason: 'product' })
@@ -661,7 +664,8 @@ export function createApp(options: AppOptions = {}) {
     if (!gift) return c.body(null, 204)
     const now = c.get('services').now()
     if (type === 'egift_opened') {
-      await event(c, 'egift_opened')
+      const ip = await saltedHash(c, 'ip', clientIp(c))
+      if (await takeAttempt(c.env.DB, `egift-event:${ip}`, PUBLIC_EVENT_TRIES.max, PUBLIC_EVENT_TRIES.windowMs, now)) await event(c, 'egift_opened')
       return c.body(null, 204)
     }
     if (type === 'opened') {
@@ -732,6 +736,9 @@ export function createApp(options: AppOptions = {}) {
     const body = (await readJson(c, 1024)) as { viewer?: unknown } | undefined
     const viewer = String(body?.viewer ?? '')
     if (!VIEWER_KEY.test(viewer)) return fail(c, 400, 'invalid_viewer')
+    if (!(await takeAttempt(c.env.DB, `block:${await saltedHash(c, 'ip', clientIp(c))}`, PUBLIC_EVENT_TRIES.max, PUBLIC_EVENT_TRIES.windowMs, c.get('services').now()))) {
+      return fail(c, 429, 'too_many_blocks')
+    }
     const hash = await viewerHash(c, viewer)
     const now = c.get('services').now()
     // Both the device and (when signed in) the account, so later sign-ins or new devices stay blocked.
