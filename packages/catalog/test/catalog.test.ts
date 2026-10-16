@@ -11,9 +11,11 @@ import {
   compileCourse,
   frameDurationSeconds,
   fullCycleStridePx,
-  maxContactSlip,
+  plantedSlide,
   presetForDifficulty,
-  stanceTravel,
+  remapWalkFrame,
+  stridePx,
+  toggleFrameCount,
 } from '../src/index'
 
 const coins = [
@@ -29,14 +31,29 @@ describe('palette and walk', () => {
   })
 
   it('measures a two-step stride and a zero-slip contact', () => {
-    expect(stanceTravel(WALK_6.plants, 'left')).toBe(6)
-    expect(stanceTravel(WALK_6.plants, 'right')).toBe(6)
-    expect(fullCycleStridePx(WALK_6.plants)).toBe(12)
-    expect(fullCycleStridePx(WALK_8.plants)).toBe(16)
-    expect(maxContactSlip(WALK_6.plants, 'left', 12, 6)).toBe(0)
-    expect(maxContactSlip(WALK_8.plants, 'right', 16, 8)).toBe(0)
+    expect(stridePx(WALK_6)).toBe(12)
+    expect(stridePx(WALK_8)).toBe(16)
+    expect(fullCycleStridePx(WALK_6)).toBe(12)
+    expect(fullCycleStridePx(WALK_8)).toBe(16)
+    expect(plantedSlide(WALK_6, 'left')).toBe(0)
+    expect(plantedSlide(WALK_6, 'right')).toBe(0)
+    expect(plantedSlide(WALK_8, 'left')).toBe(0)
+    expect(plantedSlide(WALK_8, 'right')).toBe(0)
     expect(frameDurationSeconds(12, 60, 6)).toBeCloseTo(12 / 60 / 6)
     expect(frameDurationSeconds(12, 0, 6)).toBe(Number.POSITIVE_INFINITY)
+  })
+
+  it('alternates arms and feet, and remaps 6 <-> 8 without leaving the sheet', () => {
+    expect(WALK_6.frames.map((frame) => frame.arm)).toEqual(expect.arrayContaining([1, -1]))
+    expect(WALK_8.frames.map((frame) => frame.arm)).toEqual(expect.arrayContaining([1, -1]))
+    expect(WALK_6.plants.map((plant) => plant.foot)).toEqual(expect.arrayContaining(['left', 'right']))
+    const left = WALK_6.plants.find((plant) => plant.foot === 'left')
+    const right = WALK_6.plants.find((plant) => plant.foot === 'right')
+    expect(left && right && right.frame > left.frame).toBe(true)
+    expect(toggleFrameCount(6)).toBe(8)
+    const remapped = remapWalkFrame(7, 8, 6)
+    expect(remapped).toBeGreaterThanOrEqual(0)
+    expect(remapped).toBeLessThan(6)
   })
 })
 

@@ -1,10 +1,11 @@
 import { buildCourse01, buildCourseE2E, compileCourse, fullCycleStridePx, presetForDifficulty, walkCycle } from '@gfy/catalog'
 import { describe, expect, it } from 'vitest'
-import { glowAlpha, glowPulseCount } from '../src/fx'
+import { glowAlpha, glowFrequency, glowPulseCount } from '../src/fx'
 import { PlatformerMode } from '../src/mode'
 import { botInput } from '../src/sim/bot'
 import { PHYSICS } from '../src/sim/physics'
 import { createState, stepSim, type InputState, type SimState } from '../src/sim/platformer'
+import { runReplay } from '../src/sim/replay'
 import type { RuntimeCourse } from '@gfy/catalog'
 
 const idle: InputState = { left: false, right: false, jump: false, jumpPressed: false, openPressed: false }
@@ -125,7 +126,7 @@ describe('walk playback', () => {
       const state = createState(course, { walkFrames: frames })
       run(state, course, right, 90)
       expect(state.phase).toBe('walk')
-      const stride = fullCycleStridePx(walkCycle(frames).plants)
+      const stride = fullCycleStridePx(walkCycle(frames))
       const steps = Math.round(stride / PHYSICS.maxSpeed / PHYSICS.step)
       const x0 = state.x
       const frame0 = state.walkFrame
@@ -142,6 +143,12 @@ describe('walk playback', () => {
     expect(state.phase).toBe('idle')
     expect(state.walkFrame).toBe(0)
     expect(state.x).toBe(course.spawn.x)
+  })
+
+  it('replays a right-walk timeline onto a coin', () => {
+    const course = flat()
+    const state = runReplay(createState(course), course, () => right, 5)
+    expect(state.collected).toContain('coin-1')
   })
 })
 
@@ -231,6 +238,8 @@ describe('course rules', () => {
 describe('glow', () => {
   it('pulses slower than 3 Hz and holds steady when flash is reduced', () => {
     expect(glowPulseCount(1)).toBeLessThan(3)
+    expect(glowFrequency(false)).toBeLessThan(3)
+    expect(glowFrequency(true)).toBe(0)
     expect(glowAlpha(0, true)).toBe(1)
     expect(glowAlpha(0.5, true)).toBe(1)
     expect(glowAlpha(0, false)).not.toBe(glowAlpha(1 / 0.4 / 4, false))

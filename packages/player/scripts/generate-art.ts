@@ -13,10 +13,12 @@ import {
   SHEET_FRAME_W,
   SHEET_FRAMES,
   SKY,
+  POSE_FRAMES,
   WALK_6,
   WALK_8,
   walkCycle,
-  type PlantFrame,
+  type FootPose,
+  type HeroFrame,
   type WalkCycle,
 } from '@gfy/catalog'
 import { PNG } from 'pngjs'
@@ -122,29 +124,26 @@ function finish(g: Grid) {
 
 type FootDraw = { x: number; y: number; shoe: boolean }
 
+function heroPose(pose: Pose): HeroFrame {
+  if (pose.kind === 'walk') return walkCycle(pose.count).frames[pose.frame]
+  if (pose.kind === 'idle') return { ...POSE_FRAMES.idle, bob: pose.blink ? 1 : 0 }
+  return POSE_FRAMES[pose.kind]
+}
+
 function feet(pose: Pose): { left: FootDraw; right: FootDraw } {
-  if (pose.kind === 'walk') {
-    const cycle: WalkCycle = walkCycle(pose.count)
-    const at = (foot: PlantFrame['foot']): FootDraw => {
-      const plant = cycle.plants.find((entry) => entry.foot === foot && entry.frame === pose.frame)
-      if (!plant) return { x: foot === 'left' ? 6 : 10, y: 19, shoe: false }
-      return { x: 8 + plant.localX, y: 23, shoe: true }
-    }
-    return { left: at('left'), right: at('right') }
-  }
-  if (pose.kind === 'jump-up') return { left: { x: 6, y: 19, shoe: false }, right: { x: 10, y: 19, shoe: false } }
-  if (pose.kind === 'jump-apex') return { left: { x: 7, y: 18, shoe: false }, right: { x: 11, y: 18, shoe: false } }
-  if (pose.kind === 'jump-fall') return { left: { x: 6, y: 21, shoe: false }, right: { x: 11, y: 21, shoe: false } }
-  if (pose.kind === 'land') return { left: { x: 4, y: 23, shoe: true }, right: { x: 12, y: 23, shoe: true } }
-  if (pose.kind === 'turn') return { left: { x: 7, y: 23, shoe: true }, right: { x: 10, y: 23, shoe: true } }
-  return { left: { x: 6, y: 23, shoe: true }, right: { x: 10, y: 23, shoe: true } }
+  const frame = heroPose(pose)
+  const draw = (foot: FootPose): FootDraw => ({
+    x: foot.x,
+    y: foot.y,
+    shoe: foot.y === 23,
+  })
+  return { left: draw(frame.left), right: draw(frame.right) }
 }
 
 function arms(pose: Pose): { back: [number, number]; front: [number, number] } {
-  if (pose.kind === 'walk') {
-    const swing = Math.round(Math.sin((pose.frame / pose.count) * Math.PI * 2) * 2)
-    return { back: [5 - swing, 16], front: [11 + swing, 16] }
-  }
+  const swing = heroPose(pose).arm
+  if (swing > 0) return { back: [5, 16], front: [13, 14] }
+  if (swing < 0) return { back: [3, 14], front: [11, 16] }
   if (pose.kind === 'jump-up') return { back: [4, 11], front: [12, 11] }
   if (pose.kind === 'jump-apex') return { back: [3, 13], front: [12, 14] }
   if (pose.kind === 'jump-fall') return { back: [3, 12], front: [13, 12] }
@@ -155,7 +154,7 @@ function arms(pose: Pose): { back: [number, number]; front: [number, number] } {
 
 function drawSkin(pose: Pose): Grid {
   const g = grid(SHEET_FRAME_W, SHEET_FRAME_H)
-  const bob = pose.kind === 'idle' && pose.blink ? 1 : 0
+  const bob = heroPose(pose).bob
   fillEllipse(g, 8.2, 7 + bob, 4.2, 4.3, 'f')
   rect(g, 7, 11, 2, 2, 'f')
   const leg = feet(pose)
@@ -176,7 +175,7 @@ function drawSkin(pose: Pose): Grid {
 
 function drawHair(pose: Pose, bobCut: boolean): Grid {
   const g = grid(SHEET_FRAME_W, SHEET_FRAME_H)
-  const bob = pose.kind === 'idle' && pose.blink ? 1 : 0
+  const bob = heroPose(pose).bob
   fillEllipse(g, 8.2, 5.2 + bob, 4.6, 3.1, 'f')
   for (let x = 5; x <= 12; x++) put(g, x, 4 + bob, 'f')
   if (bobCut) {

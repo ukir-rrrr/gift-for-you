@@ -55,7 +55,7 @@ describe('generated art', () => {
     for (const count of [6, 8] as const) {
       const anim = count === 6 ? manifest.anims.walk6 : manifest.anims.walk8
       for (const plant of manifest.walk[count].plants) {
-        const x = anim[plant.frame] * 16 + 8 + plant.localX
+        const x = anim[plant.frame] * 16 + plant.localX
         const alpha = outfit.data[(23 * outfit.width + x) * 4 + 3]
         expect(alpha).toBe(255)
       }

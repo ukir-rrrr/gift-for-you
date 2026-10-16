@@ -14,6 +14,7 @@ import { fetchReveal, postEvent, type Reveal } from './net'
 import { PlatformerMode } from './mode'
 import { loadGift, readFlags, recipientName, giftIdFromLocation } from './route'
 import { integerScale } from './scale'
+import { nextPhase, screenOf, type SessionPhase } from './phase'
 import { PlayScene, type HeroLook } from './scene'
 import type { InputState } from './sim/platformer'
 
@@ -27,7 +28,7 @@ function must<T extends HTMLElement>(id: string): T {
 }
 
 function showError() {
-  document.body.dataset.screen = 'error'
+  document.body.dataset.screen = screenOf({ kind: 'error' })
   must('title').hidden = true
   const error = must('error')
   error.hidden = false
@@ -71,17 +72,25 @@ function boot(share: ShareJson, id: string) {
   let easy = flags.easy || flags.e2e || share.course.assist.easyModeDefault
   let reduceFlash = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const rec = flags.rec || share.options?.recordingModeDefault === true
-  let started = false
+  let session: SessionPhase = { kind: 'title' }
   let goalSent = false
   let openFor = 0
-  let letterOn = false
   let popupId = ''
   let popupLeft = 0
   let reveal: Reveal | null = null
   let letterFull = ''
   let letterShown = 0
+  const assistAfter = share.course.assist.autoAssistAfterFails
 
-  mode.load(course, { easy, walkFrames, assistAfter: share.course.assist.autoAssistAfterFails })
+  function go(event: Parameters<typeof nextPhase>[1]) {
+    session = nextPhase(session, event)
+    document.body.dataset.screen = screenOf(session)
+    must('title').hidden = session.kind !== 'title'
+    must('letter').hidden = session.kind !== 'letter'
+    must('error').hidden = session.kind !== 'error'
+  }
+
+  mode.load(course, { easy, walkFrames, assistAfter })
   const game = new Phaser.Game({
     type: Phaser.CANVAS,
     width: 180,
@@ -181,9 +190,8 @@ function boot(share: ShareJson, id: string) {
   })
 
   async function openLetter() {
-    if (letterOn) return
-    letterOn = true
-    document.body.dataset.screen = 'letter'
+    if (session.kind !== 'letter') go({ type: 'to-letter' })
+    if (session.kind !== 'letter') return
     letter.hidden = false
     must('title').hidden = true
     try {
@@ -225,21 +233,33 @@ function boot(share: ShareJson, id: string) {
         popupId = ''
       }
     }
-    assist.hidden = snap.assist !== 'offered'
-    prompt.hidden = snap.goalBeat !== 'hold'
-    const opened = snap.goalBeat === 'open'
-    heldBox.hidden = !opened || letterOn
-    if (opened) {
+    if (snap.assist === 'offered' && session.kind === 'play') {
+      go({ type: 'fail', fails: snap.fails, threshold: assistAfter })
+    }
+    if (snap.goalBeat === 'hold' && session.kind === 'play') {
+      go({ type: 'goal' })
+    }
+    if (snap.goalBeat === 'open' && session.kind === 'reveal' && session.beat === 1) {
+      go({ type: 'reveal-tap' })
+    }
+    assist.hidden = session.kind !== 'assist'
+    prompt.hidden = !(session.kind === 'reveal' && session.beat === 1)
+    const showingGift = session.kind === 'reveal' && session.beat >= 2
+    heldBox.hidden = !showingGift
+    if (session.kind === 'reveal' && session.beat >= 2) {
       heldIcon.src = `/assets/items/${share.goal.giftItem.itemId}.png`
       heldLabel.textContent = sanitizeDisplay(share.goal.giftItem.label)
       openFor += dt
-      if (openFor > 1.3) void openLetter()
+      if (session.beat === 2 && openFor > 1.3) {
+        go({ type: 'reveal-advance' })
+        void openLetter()
+      }
     }
     if (snap.goalBeat !== 'none' && !goalSent) {
       goalSent = true
       void postEvent(id, 'goal_reached')
     }
-    if (letterOn && letterFull) {
+    if (session.kind === 'letter' && letterFull) {
       letterShown += dt * 28
       letterBody.textContent = [...letterFull].slice(0, Math.floor(letterShown)).join('')
     }
@@ -247,18 +267,17 @@ function boot(share: ShareJson, id: string) {
   }
 
   start.addEventListener('click', () => {
-    if (started || start.disabled) return
-    started = true
+    if (session.kind !== 'title' || start.disabled) return
+    go({ type: 'start' })
     music.unlock()
     void postEvent(id, 'opened')
-    document.body.dataset.screen = 'play'
-    must('title').hidden = true
     scene.playing = true
     applyChrome()
     fit()
   })
 
   prompt.addEventListener('click', () => {
+    if (session.kind === 'reveal' && session.beat === 1) go({ type: 'reveal-tap' })
     edge.open = true
   })
   memory.addEventListener('pointerdown', () => {
@@ -266,9 +285,13 @@ function boot(share: ShareJson, id: string) {
     popupId = ''
     memory.hidden = true
   })
-  must('btn-invincible').addEventListener('click', () => mode.chooseAssist('invincible'))
-  must('btn-float').addEventListener('click', () => mode.chooseAssist('float'))
-  must('btn-skip').addEventListener('click', () => mode.chooseAssist('skip'))
+  function pickAssist(choice: 'invincible' | 'float' | 'skip') {
+    mode.chooseAssist(choice)
+    go({ type: 'assist-close' })
+  }
+  must('btn-invincible').addEventListener('click', () => pickAssist('invincible'))
+  must('btn-float').addEventListener('click', () => pickAssist('float'))
+  must('btn-skip').addEventListener('click', () => pickAssist('skip'))
   easyButton.addEventListener('click', () => {
     easy = !easy
     mode.setEasy(easy)
@@ -313,7 +336,6 @@ function boot(share: ShareJson, id: string) {
     confirm.hidden = true
   })
   retry.addEventListener('click', () => {
-    letterOn = false
     void openLetter()
   })
 
@@ -324,7 +346,10 @@ function boot(share: ShareJson, id: string) {
     held.right = down
   })
   bindHold('btn-jump', (down) => {
-    if (down && mode.read()?.goalBeat === 'hold') edge.open = true
+    if (down && mode.read()?.goalBeat === 'hold') {
+      if (session.kind === 'reveal' && session.beat === 1) go({ type: 'reveal-tap' })
+      edge.open = true
+    }
     else {
       held.jump = down
       if (down) edge.jump = true
@@ -338,7 +363,10 @@ function boot(share: ShareJson, id: string) {
     if (key === 'arrowright' || key === 'd') held.right = true
     if (key === 'arrowup' || key === 'w' || key === ' ') {
       event.preventDefault()
-      if (mode.read()?.goalBeat === 'hold') edge.open = true
+      if (mode.read()?.goalBeat === 'hold') {
+        if (session.kind === 'reveal' && session.beat === 1) go({ type: 'reveal-tap' })
+        edge.open = true
+      }
       else {
         held.jump = true
         edge.jump = true

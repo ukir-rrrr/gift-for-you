@@ -1,4 +1,4 @@
-import type { RuntimeCourse, WalkFrameCount } from '@gfy/catalog'
+import { remapWalkFrame, type RuntimeCourse, type WalkFrameCount } from '@gfy/catalog'
 import { PHYSICS } from './sim/physics'
 import {
   chooseAssist,
@@ -57,9 +57,9 @@ export class PlatformerMode implements GameMode {
 
   setWalkFrames(frameCount: WalkFrameCount) {
     if (!this.state) return
+    const from = this.state.walkFrames
+    this.state.walkFrame = remapWalkFrame(this.state.walkFrame, from, frameCount)
     this.state.walkFrames = frameCount
-    this.state.walkFrame = 0
-    this.state.walkAcc = 0
   }
 
   chooseAssist(choice: 'invincible' | 'float' | 'skip') {

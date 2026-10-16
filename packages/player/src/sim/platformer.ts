@@ -237,7 +237,7 @@ function resolveY(state: SimState, solids: readonly Rect[]): boolean {
 
 function advanceWalk(state: SimState, dt: number) {
   const speed = Math.abs(state.vx)
-  const stride = fullCycleStridePx(walkCycle(state.walkFrames).plants)
+  const stride = fullCycleStridePx(walkCycle(state.walkFrames))
   const frameDt = frameDurationSeconds(stride, speed, state.walkFrames)
   if (!Number.isFinite(frameDt) || speed === 0) {
     state.walkFrame = 0

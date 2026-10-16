@@ -126,9 +126,10 @@ export class PlayScene extends Phaser.Scene {
       }
       ctx.putImageData(image, 0, 0)
     }
-    const sheet = this.textures.addCanvas(key, canvas)
-    if (!sheet) return part.id
-    this.textures.addSpriteSheet('', sheet, { frameWidth: 16, frameHeight: 24 })
+    const texture = this.textures.addCanvas(key, canvas)
+    if (!texture) return part.id
+    const frames = Math.floor(canvas.width / 16)
+    for (let i = 0; i < frames; i++) texture.add(String(i), 0, i * 16, 0, 16, 24)
     return key
   }
 

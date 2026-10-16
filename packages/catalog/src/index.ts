@@ -28,6 +28,7 @@ export { compileCourse, movingPlatformX, solidsAt } from './compile'
 export type { CoinInput, MovingPlatform, RuntimeCoin, RuntimeCourse } from './compile'
 export {
   ANIM_INDEX,
+  POSE_FRAMES,
   SHEET_FRAMES,
   SHEET_FRAME_H,
   SHEET_FRAME_W,
@@ -36,11 +37,16 @@ export {
   cycleDurationSeconds,
   frameDurationSeconds,
   fullCycleStridePx,
+  heroFrameFor,
   maxContactSlip,
+  plantedSlide,
+  remapWalkFrame,
   stanceTravel,
+  stridePx,
+  toggleFrameCount,
   walkCycle,
 } from './walk'
-export type { Foot, PlantFrame, WalkCycle, WalkFrameCount } from './walk'
+export type { Foot, FootPose, HeroFrame, PlantFrame, PoseName, WalkCycle, WalkFrameCount } from './walk'
 
 export function catalogIndex(): CatalogIndex {
   return {
