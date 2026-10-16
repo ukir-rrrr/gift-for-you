@@ -92,7 +92,9 @@ export async function settlePurchases(api: Api, kv: KV, store?: Store, now = Dat
       try {
         await api.syncPurchase(entry.proof)
       } catch (syncError) {
-        if (retryable(syncError)) continue
+        // Past the week, the same "receipt" refusal from the hand-over is final too; outages still wait.
+        const refusedForGood = stale && syncError instanceof ApiError && syncError.code === 'purchase_invalid'
+        if (retryable(syncError) && !refusedForGood) continue
       }
       await dropPending(kv, entry.proof.transactionId)
     }

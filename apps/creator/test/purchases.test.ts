@@ -103,6 +103,8 @@ describe('F3-03 purchase flow in the app', () => {
       if (path === '/api/gifts/g-later/purchase') return { status: 503, body: { error: 'purchase_unavailable' } }
       if (path === '/api/gifts/g-refunded/purchase') return { status: 402, body: { error: 'purchase_invalid', reason: 'refunded' } }
       if (method === 'POST' && path === '/api/purchases' && tx === 'r') return { status: 402, body: { error: 'purchase_invalid', reason: 'refunded' } }
+      // The server answers a transaction RevenueCat never listed the same way when it is handed over.
+      if (method === 'POST' && path === '/api/purchases' && tx === 'old-lag') return { status: 402, body: { error: 'purchase_invalid', reason: 'receipt' } }
       // RevenueCat has not listed the transaction yet: may pass on a later start.
       if (path === '/api/gifts/g-lag/purchase' || path === '/api/gifts/g-lag-old/purchase') {
         return { status: 402, body: { error: 'purchase_invalid', reason: 'receipt' } }
@@ -130,7 +132,7 @@ describe('F3-03 purchase flow in the app', () => {
     // g-gone became a credit and g-refunded is dropped for good; g-later (503), g-lag (receipt not yet
     // listed), and g-used (its credit sync failed) wait for the next start.
     expect((await loadPending(kv)).map((entry) => entry.giftId)).toEqual(['g-later', 'g-lag', 'g-used'])
-    expect(synced).toEqual(['b', 'old-lag', 'old', 'new'])
+    expect(synced).toEqual(['b', 'old', 'new'])
     // Store transactions are synced once.
     synced.length = 0
     await settlePurchases(api, kv, store)
