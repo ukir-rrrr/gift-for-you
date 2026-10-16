@@ -6,7 +6,7 @@ import {
   type RuntimeCoin,
   type RuntimeCourse,
 } from '@gfy/catalog'
-import { checkEgiftUrl, sanitizeDisplay, type ShareJson } from '@gfy/schema'
+import { checkEgiftUrl, sanitizeDisplay, type Difficulty, type ShareJson } from '@gfy/schema'
 import Phaser from 'phaser'
 import { Music } from './audio'
 import { copy, UNAVAILABLE } from './copy'
@@ -50,13 +50,15 @@ function bindHold(id: string, set: (down: boolean) => void) {
 
 function boot(share: ShareJson, id: string) {
   const flags = readFlags(location.search)
-  const difficulty = flags.difficulty ?? share.course.difficulty
+  const diffs: Difficulty[] = ['easy', 'normal', 'hard']
+  let difficulty: Difficulty = flags.difficulty ?? share.course.difficulty
   const coins = share.memoryCoins.map((coin) => ({
     order: coin.order,
     photoRef: coin.photoRef,
     message: sanitizeDisplay(coin.message),
   }))
-  const course = compileCourse(flags.e2e ? buildCourseE2E() : buildCourse01(), presetForDifficulty(difficulty), coins)
+  const template = flags.e2e ? buildCourseE2E() : buildCourse01()
+  let course = compileCourse(template, presetForDifficulty(difficulty), coins)
   const look: HeroLook = {
     hairId: share.hero?.hairId ?? 'hair-bob',
     skinId: share.hero?.skinId ?? 'skin-light',
@@ -132,6 +134,7 @@ function boot(share: ShareJson, id: string) {
   const egift = must<HTMLDivElement>('egift')
   const confirm = must<HTMLDivElement>('confirm')
   const walkButton = must<HTMLButtonElement>('btn-walk')
+  const diffButton = must<HTMLButtonElement>('btn-diff')
   const easyButton = must<HTMLButtonElement>('btn-easy')
   const muteButton = must<HTMLButtonElement>('btn-mute')
   const flashButton = must<HTMLButtonElement>('btn-flash')
@@ -160,6 +163,7 @@ function boot(share: ShareJson, id: string) {
     document.body.dataset.rec = rec ? '1' : '0'
     must('watermark').hidden = !rec
     easyButton.textContent = easy ? copy.easyOn : copy.easyOff
+    diffButton.textContent = copy.difficulty[difficulty]
     walkButton.textContent = copy.walk(walkFrames)
     muteButton.textContent = music.isMuted ? copy.soundOff : copy.soundOn
     flashButton.textContent = reduceFlash ? copy.flashOff : copy.flashOn
@@ -298,6 +302,21 @@ function boot(share: ShareJson, id: string) {
   easyButton.addEventListener('click', () => {
     easy = !easy
     mode.setEasy(easy)
+    applyChrome()
+  })
+  diffButton.addEventListener('click', () => {
+    difficulty = diffs[(diffs.indexOf(difficulty) + 1) % diffs.length]
+    course = compileCourse(template, presetForDifficulty(difficulty), coins)
+    mode.load(course, { easy, walkFrames, assistAfter })
+    scene.mount(mode, course, look, share.goal.giftItem.itemId)
+    goalSent = false
+    openFor = 0
+    popupId = ''
+    popupLeft = 0
+    if (session.kind !== 'title' && session.kind !== 'error') session = { kind: 'play' }
+    scene.playing = session.kind === 'play'
+    memory.hidden = true
+    paint()
     applyChrome()
   })
   walkButton.addEventListener('click', () => {

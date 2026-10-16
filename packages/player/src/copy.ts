@@ -14,6 +14,11 @@ export const copy = {
   skip: 'この先へ',
   easyOn: 'かんたん中',
   easyOff: 'かんたん',
+  difficulty: {
+    easy: 'やさしい',
+    normal: 'ふつう',
+    hard: 'ちょい手ごわい',
+  },
   walk: (frames: number) => `歩き ${frames}`,
   soundOn: 'おと オン',
   soundOff: 'おと オフ',

@@ -1,11 +1,13 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { buildCourse01, buildCourseE2E, compileCourse, presetForDifficulty, stridePx, walkCycle } from '@gfy/catalog'
 import { describe, expect, it } from 'vitest'
 import { glowAlpha, glowFrequency, glowPulseCount } from '../src/fx'
 import { PlatformerMode } from '../src/mode'
-import { botInput } from '../src/sim/bot'
 import { PHYSICS } from '../src/sim/physics'
 import { createState, stepSim, type InputState, type SimState } from '../src/sim/platformer'
 import { runReplay } from '../src/sim/replay'
+import { runTape, type TapeChunk } from '../src/sim/tape'
 import type { RuntimeCourse } from '@gfy/catalog'
 
 const idle: InputState = { left: false, right: false, jump: false, jumpPressed: false }
@@ -20,6 +22,7 @@ function flat(width = 2400): RuntimeCourse {
     solids: [{ id: 'ground', x: 0, y: 272, w: width, h: 48 }],
     hazards: [],
     moving: [],
+    walkers: [],
     coins: [{ id: 'coin-1', x: 180, y: 240, w: 14, h: 16, sectionId: 'meet', order: 1, photoRef: 'photo-1', message: '一枚' }],
     checkpoints: [{ id: 'cp', x: 40, y: 272, sectionId: 'meet' }],
     goal: { x: width - 80, y: 272 },
@@ -189,7 +192,7 @@ describe('course rules', () => {
     expect(snap?.sectionName).toBe('思い出の小道')
   })
 
-  it('clears the compact course in easy mode and the template with a bot', () => {
+  it('clears the compact course in easy mode', () => {
     const coins = [
       { order: 1, photoRef: 'photo-1', message: '一枚目' },
       { order: 2, photoRef: 'photo-2', message: '二枚目' },
@@ -201,37 +204,76 @@ describe('course rules', () => {
     for (let i = 0; i < 60 * 20 && !compact.onGoal(); i++) compact.update(PHYSICS.step)
     expect(compact.onGoal()?.templateId).toBe('course-e2e')
     expect(compact.read()?.collected).toContain('coin-1')
+  })
 
-    const course = compileCourse(buildCourse01(), presetForDifficulty('normal'), coins)
-    const mode = new PlatformerMode()
-    mode.load(course)
-    const hold = { frames: 0 }
-    let steps = 0
-    while (!mode.onGoal() && steps < 60 * 180) {
-      const snap = mode.read()
-      if (!snap) break
-      mode.setInput(
-        botInput(
-          {
-            x: snap.x,
-            y: snap.y,
-            grounded: snap.grounded,
-            time: snap.time,
-            atGoal: snap.atGoal,
-            assist: snap.assist,
-          },
-          course,
-          hold,
-        ),
-      )
-      mode.update(PHYSICS.step)
-      steps += 1
+  it('stomps a walker from above and returns to the checkpoint on a side bump', () => {
+    const course: RuntimeCourse = {
+      ...flat(400),
+      walkers: [{ id: 'w1', originX: 140, y: 262, w: 12, h: 10, travel: 0, period: 8 }],
+      spawn: { x: 40, y: 272 },
+      goal: { x: 380, y: 272 },
     }
-    expect(mode.onGoal()?.templateId).toBe('course-01')
-    const seconds = steps / 60
+    const stomp = createState(course)
+    stomp.x = 146
+    stomp.prevX = 146
+    stomp.y = 264
+    stomp.prevY = 258
+    stomp.vy = 90
+    stomp.grounded = false
+    stomp.wasGrounded = false
+    stepSim(stomp, idle, course, PHYSICS.step)
+    expect(stomp.stomped).toContain('w1')
+    expect(stomp.vy).toBeLessThan(0)
+    expect(stomp.fails).toBe(0)
+
+    const bump = createState(course)
+    bump.x = 130
+    bump.prevX = 128
+    run(bump, course, right, 40)
+    expect(bump.fails).toBeGreaterThanOrEqual(1)
+    expect(bump.x).toBeLessThan(80)
+  })
+
+  it('sends thorn hits back to the last checkpoint', () => {
+    const course: RuntimeCourse = {
+      ...flat(400),
+      hazards: [{ id: 'bramble', x: 120, y: 262, w: 16, h: 10 }],
+      checkpoints: [{ id: 'cp', x: 40, y: 272, sectionId: 'meet' }],
+      spawn: { x: 40, y: 272 },
+      goal: { x: 380, y: 272 },
+    }
+    const state = createState(course)
+    run(state, course, right, 90)
+    expect(state.fails).toBeGreaterThanOrEqual(1)
+    expect(state.x).toBeLessThan(80)
+    expect(state.y).toBeCloseTo(272, 0)
+  })
+})
+
+describe('recorded clears', () => {
+  const coins = [
+    { order: 1, photoRef: 'photo-1', message: '一' },
+    { order: 2, photoRef: 'photo-2', message: '二' },
+    { order: 3, photoRef: 'photo-3', message: '三' },
+    { order: 4, photoRef: 'photo-4', message: '四' },
+  ]
+
+  it.each(['easy', 'normal', 'hard'] as const)('replays the frozen %s tape onto the gift', (difficulty) => {
+    const tape = JSON.parse(
+      readFileSync(join(import.meta.dirname, `tapes/${difficulty}.json`), 'utf8'),
+    ) as TapeChunk[]
+    const course = compileCourse(buildCourse01(), presetForDifficulty(difficulty), coins)
+    const state = createState(course)
+    const steps = runTape((input) => {
+      stepSim(state, input, course, PHYSICS.step)
+      return state.atGoal
+    }, tape, 60 * 170)
+    expect(state.atGoal).toBe(true)
+    expect(state.fails).toBe(0)
+    expect(state.collected).toHaveLength(4)
+    const seconds = (steps + 1) / 60
     expect(seconds).toBeGreaterThan(90)
     expect(seconds).toBeLessThan(150)
-    expect(mode.read()?.collected).toHaveLength(4)
   })
 })
 

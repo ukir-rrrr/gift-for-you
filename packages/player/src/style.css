@@ -26,15 +26,22 @@ body {
 
 button, a {
   font-family: inherit;
-  font-size: 16px;
+  font-size: 14px;
   color: #2a2118;
   background: #d8c9b0;
-  border: 3px solid #2a2118;
+  border: 2px solid #2a2118;
+  border-radius: 0;
+  box-shadow: inset 2px 2px 0 #c5d4dc, inset -2px -2px 0 #a08468;
   min-height: 44px;
   min-width: 44px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   text-decoration: none;
   touch-action: none;
+  image-rendering: pixelated;
+}
+
+button:active, a:active {
+  box-shadow: inset -2px -2px 0 #c5d4dc, inset 2px 2px 0 #a08468;
 }
 
 #stage {
@@ -190,7 +197,15 @@ button, a {
 #tools, #controls {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+#tools button {
+  font-family: "PixelMplus10", sans-serif;
+  font-size: 12px;
+  border-radius: 0;
+  padding: 6px 8px;
 }
 
 #controls button { flex: 1; }

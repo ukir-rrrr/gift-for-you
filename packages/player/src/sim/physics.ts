@@ -18,7 +18,8 @@ export const PHYSICS = {
   width: 10,
   height: 20,
   killY: 360,
-  stepUp: 48,
+  stepUp: 4,
+  goalSlack: 48,
 } as const
 
 export const VIEW_W = 180

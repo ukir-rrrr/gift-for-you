@@ -24,8 +24,8 @@ export {
   buildCourseE2E,
 } from './course'
 export type { CourseTemplate, Rect } from './course'
-export { compileCourse, movingPlatformX, solidsAt } from './compile'
-export type { CoinInput, MovingPlatform, RuntimeCoin, RuntimeCourse } from './compile'
+export { compileCourse, movingPlatformX, solidsAt, walkerX } from './compile'
+export type { CoinInput, MovingPlatform, RuntimeCoin, RuntimeCourse, Walker } from './compile'
 export {
   ANIM_INDEX,
   POSE_FRAMES,

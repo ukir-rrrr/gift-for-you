@@ -4,6 +4,7 @@ import {
   HERO_PARTS,
   heroPart,
   movingPlatformX,
+  walkerX,
   type RuntimeCourse,
 } from '@gfy/catalog'
 import Phaser from 'phaser'
@@ -58,9 +59,12 @@ export class PlayScene extends Phaser.Scene {
   private sky!: Phaser.GameObjects.TileSprite
   private hills!: Phaser.GameObjects.TileSprite
   private grass!: Phaser.GameObjects.TileSprite
+  private rays: Phaser.GameObjects.Image[] = []
+  private sparks: Phaser.GameObjects.Image[] = []
   private world: Phaser.GameObjects.GameObject[] = []
   private coins = new Map<string, Phaser.GameObjects.Image>()
   private platforms = new Map<string, Phaser.GameObjects.TileSprite>()
+  private walkers = new Map<string, Phaser.GameObjects.Sprite>()
 
   constructor() {
     super('play')
@@ -75,6 +79,10 @@ export class PlayScene extends Phaser.Scene {
     this.load.image('pedestal', '/assets/tiles/pedestal.png')
     this.load.image('gift-box', '/assets/tiles/gift-box.png')
     this.load.image('token', '/assets/fx/token.png')
+    this.load.image('cairn', '/assets/tiles/cairn.png')
+    this.load.image('spark', '/assets/fx/spark.png')
+    this.load.image('ray', '/assets/fx/ray.png')
+    this.load.spritesheet('walker', '/assets/tiles/walker.png', { frameWidth: 12, frameHeight: 10 })
     this.load.image('sky', '/assets/parallax/sky.png')
     this.load.image('hills', '/assets/parallax/hills.png')
     this.load.image('grass', '/assets/parallax/grass.png')
@@ -84,10 +92,12 @@ export class PlayScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#8fadc0')
     this.cameras.main.roundPixels = true
     this.sky = this.add.tileSprite(0, 0, 180, 320, 'sky').setOrigin(0, 0).setScrollFactor(0).setDepth(-3)
-    this.hills = this.add.tileSprite(0, 168, 180, 64, 'hills').setOrigin(0, 0).setScrollFactor(0).setDepth(-2)
-    this.grass = this.add.tileSprite(0, 248, 180, 32, 'grass').setOrigin(0, 0).setScrollFactor(0).setDepth(-1)
+    this.hills = this.add.tileSprite(0, 152, 180, 80, 'hills').setOrigin(0, 0).setScrollFactor(0).setDepth(-2)
+    this.grass = this.add.tileSprite(0, 232, 180, 48, 'grass').setOrigin(0, 0).setScrollFactor(0).setDepth(-1)
     this.box = this.add.image(0, 0, 'gift-box').setOrigin(0.5, 1).setDepth(5)
     this.item = this.add.image(0, 0, 'item-scarf').setOrigin(0.5, 1).setDepth(9).setVisible(false)
+    this.rays = [0, 1, 2].map((i) => this.add.image(0, 0, 'ray').setOrigin(0.5, 1).setDepth(4).setAngle(-20 + i * 20))
+    this.sparks = [0, 1, 2, 3].map(() => this.add.image(0, 0, 'spark').setDepth(10))
     this.game.events.emit('gfy-ready')
   }
 
@@ -138,10 +148,7 @@ export class PlayScene extends Phaser.Scene {
     const skin = this.partKey(this.look.skinId, this.look.colors?.skin)
     const outfit = this.partKey(this.look.outfitId, this.look.colors?.outfit)
     const hair = this.partKey(this.look.hairId, this.look.colors?.hair)
-    const make = (key: string, depth: number) => {
-      const sprite = this.add.sprite(40, 272, key, 0).setOrigin(0.5, 1).setDepth(depth)
-      return sprite
-    }
+    const make = (key: string, depth: number) => this.add.sprite(40, 272, key, 0).setOrigin(0.5, 1).setDepth(depth)
     this.skin?.destroy()
     this.outfit?.destroy()
     this.hair?.destroy()
@@ -155,6 +162,7 @@ export class PlayScene extends Phaser.Scene {
     this.world = []
     this.coins.clear()
     this.platforms.clear()
+    this.walkers.clear()
     const course = this.course
     if (!course) return
     for (const solid of course.solids) {
@@ -172,10 +180,19 @@ export class PlayScene extends Phaser.Scene {
       this.platforms.set(platform.id, tile)
       this.world.push(tile)
     }
+    for (const walker of course.walkers) {
+      const sprite = this.add.sprite(walker.originX, walker.y + walker.h, 'walker', 0).setOrigin(0.5, 1).setDepth(3)
+      this.walkers.set(walker.id, sprite)
+      this.world.push(sprite)
+    }
     for (const coin of course.coins) {
       const sprite = this.add.image(coin.x, coin.y, 'token').setOrigin(0, 0).setDepth(3)
       this.coins.set(coin.id, sprite)
       this.world.push(sprite)
+    }
+    for (const checkpoint of course.checkpoints) {
+      const mark = this.add.image(checkpoint.x, checkpoint.y, 'cairn').setOrigin(0.5, 1).setDepth(1)
+      this.world.push(mark)
     }
     const pedestal = this.add.image(course.goal.x, course.goal.y, 'pedestal').setOrigin(0.5, 1).setDepth(1)
     this.world.push(pedestal)
@@ -207,16 +224,43 @@ export class PlayScene extends Phaser.Scene {
     this.cameras.main.setScroll(camX, 0)
     this.sky.tilePositionX = camX * 0.12
     this.hills.tilePositionX = camX * 0.28
-    this.grass.tilePositionX = camX * 0.5
+    this.grass.tilePositionX = camX * 0.55
     for (const [id, sprite] of this.coins) sprite.setVisible(!snap.collected.includes(id))
     for (const platform of course.moving) {
       const tile = this.platforms.get(platform.id)
       if (!tile) continue
       tile.x = movingPlatformX(platform, snap.time)
     }
+    for (const walker of course.walkers) {
+      const sprite = this.walkers.get(walker.id)
+      if (!sprite) continue
+      const stomped = snap.stomped.includes(walker.id)
+      sprite.setVisible(!stomped)
+      if (stomped) continue
+      const wx = walkerX(walker, snap.time)
+      sprite.setPosition(Math.round(wx + walker.w / 2), walker.y + walker.h)
+      sprite.setFrame(Math.floor(snap.time * 6) % 2)
+      sprite.setFlipX(Math.cos((snap.time * Math.PI * 2) / walker.period) < 0)
+    }
+    const glow = glowAlpha(snap.time, this.reduceFlash)
+    const atPedestal = snap.x > course.goal.x - 40
     this.box.setVisible(!this.giftOpen)
-    this.box.setAlpha(glowAlpha(snap.time, this.reduceFlash))
+    this.box.setAlpha(glow)
     this.item.setVisible(this.giftOpen)
     if (this.giftOpen) this.item.setPosition(x, y - 26)
+    for (const [i, ray] of this.rays.entries()) {
+      const show = !this.reduceFlash && atPedestal
+      ray.setVisible(show)
+      ray.setPosition(course.goal.x, course.goal.y - 18)
+      ray.setAlpha(show ? glow * 0.55 : 0)
+      ray.setAngle(-24 + i * 24 + Math.sin(snap.time * 1.1 + i) * 6)
+    }
+    for (const [i, spark] of this.sparks.entries()) {
+      const show = !this.reduceFlash && atPedestal
+      const t = snap.time * 1.4 + i * 1.7
+      spark.setVisible(show)
+      spark.setPosition(course.goal.x + Math.cos(t) * 14, course.goal.y - 26 + Math.sin(t * 1.3) * 10)
+      spark.setAlpha(show ? 0.4 + 0.4 * glow : 0)
+    }
   }
 }

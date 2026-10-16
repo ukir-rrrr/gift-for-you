@@ -3,6 +3,7 @@ import {
   solidsAt,
   stridePx,
   walkCycle,
+  walkerX,
   type RuntimeCourse,
   type WalkFrameCount,
 } from '@gfy/catalog'
@@ -48,6 +49,7 @@ export type SimState = {
   fails: number
   assist: AssistMode
   collected: string[]
+  stomped: string[]
   popup: string[]
   atGoal: boolean
   groundId: string | null
@@ -84,6 +86,7 @@ export function createState(
     fails: 0,
     assist: 'none',
     collected: [],
+    stomped: [],
     popup: [],
     atGoal: false,
     groundId: null,
@@ -119,6 +122,7 @@ function checkpointFor(state: SimState, course: RuntimeCourse) {
 
 function fail(state: SimState, course: RuntimeCourse) {
   state.fails += 1
+  state.stomped = []
   if (state.fails >= state.assistAfter && state.assist === 'none') state.assist = 'offered'
   const checkpoint = checkpointFor(state, course)
   place(state, checkpoint.x, checkpoint.y)
@@ -371,6 +375,24 @@ export function stepSim(state: SimState, input: InputState, course: RuntimeCours
     }
   }
 
+  for (const walker of course.walkers) {
+    if (state.stomped.includes(walker.id)) continue
+    const x = walkerX(walker, state.time)
+    const foe = { id: walker.id, x, y: walker.y, w: walker.w, h: walker.h }
+    if (!hits(box, foe)) continue
+    const fromAbove = state.vy > 20 && state.prevY <= walker.y + 3
+    if (fromAbove) {
+      state.stomped.push(walker.id)
+      state.vy = -160
+      state.jumping = false
+      continue
+    }
+    if (state.assist !== 'invincible') {
+      fail(state, course)
+      updatePhase(state, dt, false, false)
+      return
+    }
+  }
   if (state.assist !== 'invincible' && course.hazards.some((hazard) => hits(box, hazard))) {
     fail(state, course)
     updatePhase(state, dt, false, false)
@@ -387,7 +409,7 @@ export function stepSim(state: SimState, input: InputState, course: RuntimeCours
     return
   }
 
-  if (state.grounded && state.x >= course.goal.x && Math.abs(state.y - course.goal.y) <= PHYSICS.stepUp) {
+  if (state.grounded && state.x >= course.goal.x && Math.abs(state.y - course.goal.y) <= PHYSICS.goalSlack) {
     state.atGoal = true
     state.vx = 0
     state.vy = 0
@@ -414,6 +436,7 @@ export type Snapshot = {
   fails: number
   assist: AssistMode
   collected: readonly string[]
+  stomped: readonly string[]
   popup: readonly string[]
   atGoal: boolean
   sectionName: string
@@ -437,6 +460,7 @@ export function snapshot(state: SimState, course: RuntimeCourse): Snapshot {
     fails: state.fails,
     assist: state.assist,
     collected: state.collected,
+    stomped: state.stomped,
     popup: state.popup,
     atGoal: state.atGoal,
     sectionName: sectionAt(course, state.x).name,

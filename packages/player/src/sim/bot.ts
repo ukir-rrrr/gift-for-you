@@ -1,4 +1,4 @@
-import { solidsAt, type RuntimeCourse } from '@gfy/catalog'
+import { solidsAt, walkerX, type RuntimeCourse } from '@gfy/catalog'
 import type { InputState } from './platformer'
 import { PHYSICS } from './physics'
 
@@ -8,6 +8,7 @@ export type BotView = {
   grounded: boolean
   time: number
   atGoal: boolean
+  stomped: readonly string[]
   assist: 'none' | 'offered' | 'invincible' | 'float'
 }
 
@@ -21,30 +22,49 @@ function surfaceAt(course: RuntimeCourse, time: number, x: number, footY: number
   return best
 }
 
+function overlapsBody(state: BotView, y: number, h: number): boolean {
+  const bodyTop = state.y - PHYSICS.height
+  return y < state.y && y + h > bodyTop
+}
+
 export function botInput(state: BotView, course: RuntimeCourse, hold: { frames: number }): InputState {
   if (state.atGoal) {
     return { left: false, right: false, jump: false, jumpPressed: false }
   }
   let jump = false
   if (state.grounded) {
-    for (let ahead = 4; ahead <= 40; ahead += 2) {
+    for (let ahead = 4; ahead <= 44; ahead += 2) {
       const top = surfaceAt(course, state.time, state.x + ahead, state.y)
       if (top === null || top > state.y + 24) {
-        if (ahead <= 12) jump = true
+        if (ahead <= 22) jump = true
+        break
+      }
+      if (top < state.y - 6 && ahead <= 24) {
+        jump = true
         break
       }
     }
-    const bodyTop = state.y - PHYSICS.height
     if (
-      course.hazards.some(
-        (hazard) =>
-          hazard.x < state.x + 18 && hazard.x + hazard.w > state.x + 2 && hazard.y < state.y && hazard.y + hazard.h > bodyTop,
-      )
+      course.hazards.some((hazard) => {
+        if (!overlapsBody(state, hazard.y, hazard.h)) return false
+        const lead = hazard.x - state.x
+        return lead > 12 && lead <= 20
+      })
+    ) {
+      jump = true
+    }
+    if (
+      course.walkers.some((walker) => {
+        if (state.stomped.includes(walker.id)) return false
+        const x = walkerX(walker, state.time)
+        const lead = x - state.x
+        return lead > 10 && lead <= 18
+      })
     ) {
       jump = true
     }
   }
-  if (jump) hold.frames = 10
+  if (jump) hold.frames = 16
   const jumping = hold.frames > 0
   if (hold.frames > 0) hold.frames -= 1
   return { left: false, right: true, jump: jumping, jumpPressed: jump }

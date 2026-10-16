@@ -1,10 +1,20 @@
 import type { CourseTemplate, Rect } from './course'
-import { GROUND_Y } from './course'
+import { COURSE_HEIGHT, GROUND_Y } from './course'
 import type { ObstaclePreset } from './presets'
 
 export type CoinInput = { order: number; photoRef: string; message: string }
 
 export type MovingPlatform = {
+  id: string
+  originX: number
+  y: number
+  w: number
+  h: number
+  travel: number
+  period: number
+}
+
+export type Walker = {
   id: string
   originX: number
   y: number
@@ -34,6 +44,7 @@ export type RuntimeCourse = {
   solids: Rect[]
   hazards: Rect[]
   moving: MovingPlatform[]
+  walkers: Walker[]
   coins: RuntimeCoin[]
   checkpoints: CourseTemplate['checkpoints']
   goal: { x: number; y: number }
@@ -61,10 +72,15 @@ function carve(solids: readonly Rect[], x: number, w: number): Rect[] {
   return next
 }
 
+function waveX(originX: number, travel: number, period: number, time: number): number {
+  return originX + Math.sin((time * Math.PI * 2) / period) * travel
+}
+
 export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, coins: readonly CoinInput[]): RuntimeCourse {
   let solids = template.solids.map((solid) => ({ ...solid }))
   const hazards: Rect[] = []
   const moving: MovingPlatform[] = []
+  const walkers: Walker[] = []
   for (const slot of template.slots) {
     const fill = preset.fills[slot.id] ?? { type: 'none' as const }
     if (fill.type === 'gap') {
@@ -78,6 +94,29 @@ export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, 
         y: GROUND_Y - 52,
         w: fill.w,
         h: 8,
+        travel: fill.travel,
+        period: fill.period,
+      })
+    } else if (fill.type === 'steps') {
+      let x = slot.x
+      fill.lifts.forEach((lift, index) => {
+        const y = GROUND_Y - lift
+        solids.push({
+          id: `${slot.id}-step-${index}`,
+          x,
+          y,
+          w: 40,
+          h: COURSE_HEIGHT - y,
+        })
+        x += 36
+      })
+    } else if (fill.type === 'walker') {
+      walkers.push({
+        id: slot.id,
+        originX: slot.x + 10,
+        y: GROUND_Y - 10,
+        w: 12,
+        h: 10,
         travel: fill.travel,
         period: fill.period,
       })
@@ -107,6 +146,7 @@ export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, 
     solids,
     hazards,
     moving,
+    walkers,
     coins: placed,
     checkpoints: template.checkpoints,
     goal: template.goal,
@@ -115,7 +155,11 @@ export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, 
 }
 
 export function movingPlatformX(platform: MovingPlatform, time: number): number {
-  return platform.originX + Math.sin((time * Math.PI * 2) / platform.period) * platform.travel
+  return waveX(platform.originX, platform.travel, platform.period, time)
+}
+
+export function walkerX(walker: Walker, time: number): number {
+  return waveX(walker.originX, walker.travel, walker.period, time)
 }
 
 export function solidsAt(course: RuntimeCourse, time: number): Rect[] {
