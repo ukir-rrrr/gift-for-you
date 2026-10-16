@@ -190,3 +190,24 @@ describe('api errors', () => {
     expect(describeError(await offline.listGifts().catch((e: unknown) => e))).toContain('つながりません')
   })
 })
+
+describe('history', () => {
+  it('joins local entries with the server state', async () => {
+    const { mergeHistory } = await import('../src/lib/history')
+    const local = [
+      { giftId: 'g1', shareId: 's1', url: 'u', revokeUrl: 'r', toName: '彩', expiresAt: '2026-10-30T00:00:00.000Z', publishedAt: 1 },
+      { giftId: 'g2', shareId: 's2', url: 'u', revokeUrl: 'r', toName: '海', expiresAt: '2026-10-31T00:00:00.000Z', publishedAt: 2 },
+    ]
+    const remote = [
+      {
+        giftId: 'g1', status: 'revoked' as const, shareId: 's1', url: null, toName: '彩', createdAt: 0, publishedAt: 0,
+        expiresAt: Date.parse('2026-10-30T00:00:00Z'), openedAt: 5, goalAt: null, openedCount: 1, goalCount: 0,
+      },
+    ]
+    expect(mergeHistory(local, remote).map((row) => [row.giftId, row.status, row.opened])).toEqual([
+      ['g1', 'revoked', true],
+      ['g2', 'unknown', false],
+    ])
+    expect(mergeHistory(local, null).every((row) => row.status === 'published')).toBe(true)
+  })
+})
