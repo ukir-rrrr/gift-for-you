@@ -20,6 +20,9 @@ export const PHYSICS = {
   killY: 360,
   stepUp: 4,
   goalSlack: 48,
+  stompVy: 20,
+  stompSlack: 3,
+  stompBounce: -160,
 } as const
 
 export const VIEW_W = 180

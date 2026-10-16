@@ -13,6 +13,8 @@ import {
   SHEET_FRAME_W,
   SHEET_FRAMES,
   SKY,
+  WALKER_H,
+  WALKER_W,
   POSE_FRAMES,
   WALK_6,
   WALK_8,
@@ -421,7 +423,7 @@ function pedestal() {
 }
 
 function walkerSheet() {
-  const image = png(24, 10)
+  const image = png(WALKER_W * 2, WALKER_H)
   const body = (ox: number, lift: number) => {
     fillEllipseOn(image, ox + 6, 4 + lift, 4.6, 3.6, '#5c4638')
     fillEllipseOn(image, ox + 6, 5 + lift, 2.4, 1.8, '#7a6248')
@@ -437,7 +439,7 @@ function walkerSheet() {
     paintHex(image, ox + 10, 6 + lift, OUTLINE)
   }
   body(0, 0)
-  body(12, 1)
+  body(WALKER_W, 1)
   write(join(root, 'tiles/walker.png'), image)
 }
 

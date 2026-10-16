@@ -1,15 +1,20 @@
 import { parseShareJson } from '@gfy/schema'
 import { describe, expect, it } from 'vitest'
 import {
+  COURSE_HEIGHT,
   GROUND_Y,
   PALETTE,
   SAMPLE_SHARES,
+  STEP_W,
+  WALKER_H,
+  WALKER_W,
   WALK_6,
   WALK_8,
   buildCourse01,
   catalogIndex,
   compileCourse,
   frameDurationSeconds,
+  moversOf,
   plantedSlide,
   presetForDifficulty,
   remapWalkFrame,
@@ -85,12 +90,29 @@ describe('course compile', () => {
       solids.some((solid) => solid.y === GROUND_Y && slot!.x >= solid.x && slot!.x < solid.x + solid.w)
     expect(covers(easy.solids)).toBe(true)
     expect(covers(hard.solids)).toBe(false)
-    expect(hard.moving.every((platform) => platform.period < 2)).toBe(true)
-    expect(easy.moving.length).toBeGreaterThan(0)
-    expect(easy.walkers.length).toBeGreaterThan(0)
-    expect(normal.walkers.length).toBeGreaterThan(0)
-    expect(hard.walkers.length).toBeGreaterThan(0)
-    expect(easy.solids.some((solid) => solid.y < GROUND_Y)).toBe(true)
-    expect(easy.solids.some((solid) => solid.id.startsWith('obs-1-step'))).toBe(true)
+    expect(moversOf(hard, 'solid').every((platform) => platform.period < 2)).toBe(true)
+    expect(moversOf(easy, 'solid')).toHaveLength(1)
+    expect(moversOf(easy, 'stompable')).toHaveLength(1)
+    expect(moversOf(normal, 'stompable').length).toBeGreaterThan(0)
+    expect(moversOf(hard, 'stompable').length).toBeGreaterThan(0)
+    const stepSlot = template.slots.find((entry) => entry.id === 'obs-1')
+    const walkerSlot = template.slots.find((entry) => entry.id === 'obs-2')
+    expect(stepSlot && walkerSlot).toBeTruthy()
+    expect(easy.solids.find((solid) => solid.id === 'obs-1-step-0')).toEqual({
+      id: 'obs-1-step-0',
+      x: stepSlot!.x,
+      y: GROUND_Y - 16,
+      w: STEP_W,
+      h: COURSE_HEIGHT - (GROUND_Y - 16),
+    })
+    expect(moversOf(easy, 'stompable')[0]).toMatchObject({
+      id: 'obs-2',
+      originX: walkerSlot!.x + 10,
+      y: GROUND_Y - WALKER_H,
+      w: WALKER_W,
+      h: WALKER_H,
+      travel: 22,
+      period: 3.6,
+    })
   })
 })

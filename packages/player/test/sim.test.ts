@@ -1,12 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { buildCourse01, buildCourseE2E, compileCourse, presetForDifficulty, stridePx, walkCycle } from '@gfy/catalog'
+import { buildCourse01, buildCourseE2E, compileCourse, presetForDifficulty, stridePx, walkCycle, WALKER_H, WALKER_W } from '@gfy/catalog'
 import { describe, expect, it } from 'vitest'
 import { glowAlpha, glowFrequency, glowPulseCount } from '../src/fx'
 import { PlatformerMode } from '../src/mode'
 import { PHYSICS } from '../src/sim/physics'
 import { createState, stepSim, type InputState, type SimState } from '../src/sim/platformer'
-import { runReplay } from '../src/sim/replay'
 import { runTape, type TapeChunk } from '../src/sim/tape'
 import type { RuntimeCourse } from '@gfy/catalog'
 
@@ -21,8 +20,7 @@ function flat(width = 2400): RuntimeCourse {
     sections: [{ id: 'meet', name: '出会いの道', x0: 0, x1: width }],
     solids: [{ id: 'ground', x: 0, y: 272, w: width, h: 48 }],
     hazards: [],
-    moving: [],
-    walkers: [],
+    movers: [],
     coins: [{ id: 'coin-1', x: 180, y: 240, w: 14, h: 16, sectionId: 'meet', order: 1, photoRef: 'photo-1', message: '一枚' }],
     checkpoints: [{ id: 'cp', x: 40, y: 272, sectionId: 'meet' }],
     goal: { x: width - 80, y: 272 },
@@ -150,7 +148,8 @@ describe('walk playback', () => {
 
   it('replays a right-walk timeline onto a coin', () => {
     const course = flat()
-    const state = runReplay(createState(course), course, () => right, 5)
+    const state = createState(course)
+    run(state, course, right, 5 * 60)
     expect(state.collected).toContain('coin-1')
   })
 })
@@ -209,7 +208,7 @@ describe('course rules', () => {
   it('stomps a walker from above and returns to the checkpoint on a side bump', () => {
     const course: RuntimeCourse = {
       ...flat(400),
-      walkers: [{ id: 'w1', originX: 140, y: 262, w: 12, h: 10, travel: 0, period: 8 }],
+      movers: [{ id: 'w1', role: 'stompable', originX: 140, y: 262, w: WALKER_W, h: WALKER_H, travel: 0, period: 8 }],
       spawn: { x: 40, y: 272 },
       goal: { x: 380, y: 272 },
     }

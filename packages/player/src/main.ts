@@ -304,8 +304,8 @@ function boot(share: ShareJson, id: string) {
     mode.setEasy(easy)
     applyChrome()
   })
-  diffButton.addEventListener('click', () => {
-    difficulty = diffs[(diffs.indexOf(difficulty) + 1) % diffs.length]
+  function reloadCourse(next: Difficulty) {
+    difficulty = next
     course = compileCourse(template, presetForDifficulty(difficulty), coins)
     mode.load(course, { easy, walkFrames, assistAfter })
     scene.mount(mode, course, look, share.goal.giftItem.itemId)
@@ -313,11 +313,15 @@ function boot(share: ShareJson, id: string) {
     openFor = 0
     popupId = ''
     popupLeft = 0
+    memory.hidden = true
     if (session.kind !== 'title' && session.kind !== 'error') session = { kind: 'play' }
     scene.playing = session.kind === 'play'
-    memory.hidden = true
     paint()
     applyChrome()
+  }
+
+  diffButton.addEventListener('click', () => {
+    reloadCourse(diffs[(diffs.indexOf(difficulty) + 1) % diffs.length])
   })
   walkButton.addEventListener('click', () => {
     walkFrames = walkFrames === 6 ? 8 : 6

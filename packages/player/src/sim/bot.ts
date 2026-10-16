@@ -1,16 +1,6 @@
-import { solidsAt, walkerX, type RuntimeCourse } from '@gfy/catalog'
-import type { InputState } from './platformer'
+import { moversOf, oscillatorX, solidsAt, type RuntimeCourse } from '@gfy/catalog'
+import type { InputState, Snapshot } from './platformer'
 import { PHYSICS } from './physics'
-
-export type BotView = {
-  x: number
-  y: number
-  grounded: boolean
-  time: number
-  atGoal: boolean
-  stomped: readonly string[]
-  assist: 'none' | 'offered' | 'invincible' | 'float'
-}
 
 function surfaceAt(course: RuntimeCourse, time: number, x: number, footY: number): number | null {
   let best: number | null = null
@@ -22,12 +12,17 @@ function surfaceAt(course: RuntimeCourse, time: number, x: number, footY: number
   return best
 }
 
-function overlapsBody(state: BotView, y: number, h: number): boolean {
+function overlapsBody(state: Snapshot, y: number, h: number): boolean {
   const bodyTop = state.y - PHYSICS.height
   return y < state.y && y + h > bodyTop
 }
 
-export function botInput(state: BotView, course: RuntimeCourse, hold: { frames: number }): InputState {
+function inLead(x: number, from: number, min: number, max: number): boolean {
+  const lead = x - from
+  return lead > min && lead <= max
+}
+
+export function botInput(state: Snapshot, course: RuntimeCourse, hold: { frames: number }): InputState {
   if (state.atGoal) {
     return { left: false, right: false, jump: false, jumpPressed: false }
   }
@@ -45,20 +40,17 @@ export function botInput(state: BotView, course: RuntimeCourse, hold: { frames: 
       }
     }
     if (
-      course.hazards.some((hazard) => {
-        if (!overlapsBody(state, hazard.y, hazard.h)) return false
-        const lead = hazard.x - state.x
-        return lead > 12 && lead <= 20
-      })
+      course.hazards.some(
+        (hazard) => overlapsBody(state, hazard.y, hazard.h) && inLead(hazard.x, state.x, 12, 20),
+      )
     ) {
       jump = true
     }
     if (
-      course.walkers.some((walker) => {
+      moversOf(course, 'stompable').some((walker) => {
         if (state.stomped.includes(walker.id)) return false
-        const x = walkerX(walker, state.time)
-        const lead = x - state.x
-        return lead > 10 && lead <= 18
+        const x = oscillatorX(walker, state.time)
+        return overlapsBody(state, walker.y, walker.h) && inLead(x, state.x, 10, 18)
       })
     ) {
       jump = true

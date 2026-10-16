@@ -1,21 +1,14 @@
 import type { CourseTemplate, Rect } from './course'
-import { COURSE_HEIGHT, GROUND_Y } from './course'
-import type { ObstaclePreset } from './presets'
+import { COURSE_HEIGHT, GROUND_Y, STEP_RUN, STEP_W, WALKER_H, WALKER_W } from './course'
+import type { ObstacleFill, ObstaclePreset } from './presets'
 
 export type CoinInput = { order: number; photoRef: string; message: string }
 
-export type MovingPlatform = {
-  id: string
-  originX: number
-  y: number
-  w: number
-  h: number
-  travel: number
-  period: number
-}
+export type MoverRole = 'solid' | 'stompable'
 
-export type Walker = {
+export type Mover = {
   id: string
+  role: MoverRole
   originX: number
   y: number
   w: number
@@ -43,8 +36,7 @@ export type RuntimeCourse = {
   sections: CourseTemplate['sections']
   solids: Rect[]
   hazards: Rect[]
-  moving: MovingPlatform[]
-  walkers: Walker[]
+  movers: Mover[]
   coins: RuntimeCoin[]
   checkpoints: CourseTemplate['checkpoints']
   goal: { x: number; y: number }
@@ -76,20 +68,25 @@ function waveX(originX: number, travel: number, period: number, time: number): n
   return originX + Math.sin((time * Math.PI * 2) / period) * travel
 }
 
-export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, coins: readonly CoinInput[]): RuntimeCourse {
-  let solids = template.solids.map((solid) => ({ ...solid }))
-  const hazards: Rect[] = []
-  const moving: MovingPlatform[] = []
-  const walkers: Walker[] = []
-  for (const slot of template.slots) {
-    const fill = preset.fills[slot.id] ?? { type: 'none' as const }
-    if (fill.type === 'gap') {
-      solids = carve(solids, slot.x, fill.w)
-    } else if (fill.type === 'thorns') {
+function applyFill(
+  fill: ObstacleFill,
+  slot: { id: string; x: number },
+  solids: Rect[],
+  hazards: Rect[],
+  movers: Mover[],
+): Rect[] {
+  switch (fill.type) {
+    case 'none':
+      return solids
+    case 'gap':
+      return carve(solids, slot.x, fill.w)
+    case 'thorns':
       hazards.push({ id: slot.id, x: slot.x, y: GROUND_Y - 10, w: fill.w, h: 10 })
-    } else if (fill.type === 'moving-platform') {
-      moving.push({
+      return solids
+    case 'moving-platform':
+      movers.push({
         id: slot.id,
+        role: 'solid',
         originX: slot.x,
         y: GROUND_Y - 52,
         w: fill.w,
@@ -97,7 +94,8 @@ export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, 
         travel: fill.travel,
         period: fill.period,
       })
-    } else if (fill.type === 'steps') {
+      return solids
+    case 'steps': {
       let x = slot.x
       fill.lifts.forEach((lift, index) => {
         const y = GROUND_Y - lift
@@ -105,22 +103,38 @@ export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, 
           id: `${slot.id}-step-${index}`,
           x,
           y,
-          w: 40,
+          w: STEP_W,
           h: COURSE_HEIGHT - y,
         })
-        x += 36
+        x += STEP_RUN
       })
-    } else if (fill.type === 'walker') {
-      walkers.push({
+      return solids
+    }
+    case 'walker':
+      movers.push({
         id: slot.id,
+        role: 'stompable',
         originX: slot.x + 10,
-        y: GROUND_Y - 10,
-        w: 12,
-        h: 10,
+        y: GROUND_Y - WALKER_H,
+        w: WALKER_W,
+        h: WALKER_H,
         travel: fill.travel,
         period: fill.period,
       })
+      return solids
+    default: {
+      const exhausted: never = fill
+      throw new Error(`unknown fill ${(exhausted as ObstacleFill).type}`)
     }
+  }
+}
+
+export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, coins: readonly CoinInput[]): RuntimeCourse {
+  let solids = template.solids.map((solid) => ({ ...solid }))
+  const hazards: Rect[] = []
+  const movers: Mover[] = []
+  for (const slot of template.slots) {
+    solids = applyFill(preset.fills[slot.id] ?? { type: 'none' }, slot, solids, hazards, movers)
   }
   const placed: RuntimeCoin[] = []
   for (const slot of template.coinSlots) {
@@ -145,8 +159,7 @@ export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, 
     sections: template.sections,
     solids,
     hazards,
-    moving,
-    walkers,
+    movers,
     coins: placed,
     checkpoints: template.checkpoints,
     goal: template.goal,
@@ -154,18 +167,22 @@ export function compileCourse(template: CourseTemplate, preset: ObstaclePreset, 
   }
 }
 
-export function movingPlatformX(platform: MovingPlatform, time: number): number {
-  return waveX(platform.originX, platform.travel, platform.period, time)
+export function oscillatorX(mover: Mover, time: number): number {
+  return waveX(mover.originX, mover.travel, mover.period, time)
 }
 
-export function walkerX(walker: Walker, time: number): number {
-  return waveX(walker.originX, walker.travel, walker.period, time)
+export function oscillatorFacing(mover: Mover, time: number): 1 | -1 {
+  return Math.cos((time * Math.PI * 2) / mover.period) < 0 ? -1 : 1
+}
+
+export function moversOf(course: RuntimeCourse, role: MoverRole): Mover[] {
+  return course.movers.filter((mover) => mover.role === role)
 }
 
 export function solidsAt(course: RuntimeCourse, time: number): Rect[] {
-  const platforms = course.moving.map((platform) => ({
+  const platforms = moversOf(course, 'solid').map((platform) => ({
     id: platform.id,
-    x: movingPlatformX(platform, time),
+    x: oscillatorX(platform, time),
     y: platform.y,
     w: platform.w,
     h: platform.h,

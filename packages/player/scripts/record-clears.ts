@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { buildCourse01, compileCourse, presetForDifficulty } from '@gfy/catalog'
 import { botInput } from '../src/sim/bot'
 import { PHYSICS } from '../src/sim/physics'
-import { createState, stepSim } from '../src/sim/platformer'
+import { createState, snapshot, stepSim } from '../src/sim/platformer'
 import { encodeTape } from '../src/sim/tape'
 
 const coins = [
@@ -24,19 +24,7 @@ for (const difficulty of ['easy', 'normal', 'hard'] as const) {
   const inputs = []
   const limit = 60 * 170
   for (let i = 0; i < limit; i++) {
-    const input = botInput(
-      {
-        x: state.x,
-        y: state.y,
-        grounded: state.grounded,
-        time: state.time,
-        atGoal: state.atGoal,
-        stomped: state.stomped,
-        assist: state.assist,
-      },
-      course,
-      hold,
-    )
+    const input = botInput(snapshot(state, course), course, hold)
     inputs.push(input)
     const fails = state.fails
     stepSim(state, input, course, PHYSICS.step)

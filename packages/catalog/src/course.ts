@@ -1,5 +1,9 @@
 export const GROUND_Y = 272
 export const COURSE_HEIGHT = 320
+export const WALKER_W = 12
+export const WALKER_H = 10
+export const STEP_W = 40
+export const STEP_RUN = 36
 
 export type Beat = { run: number; gap: number }
 

@@ -20,12 +20,16 @@ export {
   GROUND_Y,
   COURSE_HEIGHT,
   COURSE_01_BEATS,
+  WALKER_W,
+  WALKER_H,
+  STEP_W,
+  STEP_RUN,
   buildCourse01,
   buildCourseE2E,
 } from './course'
 export type { CourseTemplate, Rect } from './course'
-export { compileCourse, movingPlatformX, solidsAt, walkerX } from './compile'
-export type { CoinInput, MovingPlatform, RuntimeCoin, RuntimeCourse, Walker } from './compile'
+export { compileCourse, moversOf, oscillatorFacing, oscillatorX, solidsAt } from './compile'
+export type { CoinInput, Mover, MoverRole, RuntimeCoin, RuntimeCourse } from './compile'
 export {
   ANIM_INDEX,
   POSE_FRAMES,

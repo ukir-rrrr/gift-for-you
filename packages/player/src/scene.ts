@@ -2,9 +2,12 @@ import {
   ANIM_INDEX,
   GIFT_ITEMS,
   HERO_PARTS,
+  WALKER_H,
+  WALKER_W,
   heroPart,
-  movingPlatformX,
-  walkerX,
+  moversOf,
+  oscillatorFacing,
+  oscillatorX,
   type RuntimeCourse,
 } from '@gfy/catalog'
 import Phaser from 'phaser'
@@ -82,7 +85,7 @@ export class PlayScene extends Phaser.Scene {
     this.load.image('cairn', '/assets/tiles/cairn.png')
     this.load.image('spark', '/assets/fx/spark.png')
     this.load.image('ray', '/assets/fx/ray.png')
-    this.load.spritesheet('walker', '/assets/tiles/walker.png', { frameWidth: 12, frameHeight: 10 })
+    this.load.spritesheet('walker', '/assets/tiles/walker.png', { frameWidth: WALKER_W, frameHeight: WALKER_H })
     this.load.image('sky', '/assets/parallax/sky.png')
     this.load.image('hills', '/assets/parallax/hills.png')
     this.load.image('grass', '/assets/parallax/grass.png')
@@ -175,12 +178,12 @@ export class PlayScene extends Phaser.Scene {
         this.world.push(sprite)
       }
     }
-    for (const platform of course.moving) {
+    for (const platform of moversOf(course, 'solid')) {
       const tile = this.add.tileSprite(platform.originX, platform.y, platform.w, platform.h, 'platform').setOrigin(0, 0).setDepth(2)
       this.platforms.set(platform.id, tile)
       this.world.push(tile)
     }
-    for (const walker of course.walkers) {
+    for (const walker of moversOf(course, 'stompable')) {
       const sprite = this.add.sprite(walker.originX, walker.y + walker.h, 'walker', 0).setOrigin(0.5, 1).setDepth(3)
       this.walkers.set(walker.id, sprite)
       this.world.push(sprite)
@@ -226,21 +229,21 @@ export class PlayScene extends Phaser.Scene {
     this.hills.tilePositionX = camX * 0.28
     this.grass.tilePositionX = camX * 0.55
     for (const [id, sprite] of this.coins) sprite.setVisible(!snap.collected.includes(id))
-    for (const platform of course.moving) {
+    for (const platform of moversOf(course, 'solid')) {
       const tile = this.platforms.get(platform.id)
       if (!tile) continue
-      tile.x = movingPlatformX(platform, snap.time)
+      tile.x = oscillatorX(platform, snap.time)
     }
-    for (const walker of course.walkers) {
+    for (const walker of moversOf(course, 'stompable')) {
       const sprite = this.walkers.get(walker.id)
       if (!sprite) continue
       const stomped = snap.stomped.includes(walker.id)
       sprite.setVisible(!stomped)
       if (stomped) continue
-      const wx = walkerX(walker, snap.time)
+      const wx = oscillatorX(walker, snap.time)
       sprite.setPosition(Math.round(wx + walker.w / 2), walker.y + walker.h)
       sprite.setFrame(Math.floor(snap.time * 6) % 2)
-      sprite.setFlipX(Math.cos((snap.time * Math.PI * 2) / walker.period) < 0)
+      sprite.setFlipX(oscillatorFacing(walker, snap.time) < 0)
     }
     const glow = glowAlpha(snap.time, this.reduceFlash)
     const atPedestal = snap.x > course.goal.x - 40

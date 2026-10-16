@@ -1,9 +1,10 @@
 import {
   frameDurationSeconds,
+  moversOf,
+  oscillatorX,
   solidsAt,
   stridePx,
   walkCycle,
-  walkerX,
   type RuntimeCourse,
   type WalkFrameCount,
 } from '@gfy/catalog'
@@ -126,6 +127,11 @@ function fail(state: SimState, course: RuntimeCourse) {
   if (state.fails >= state.assistAfter && state.assist === 'none') state.assist = 'offered'
   const checkpoint = checkpointFor(state, course)
   place(state, checkpoint.x, checkpoint.y)
+}
+
+function stopForFail(state: SimState, course: RuntimeCourse, dt: number) {
+  fail(state, course)
+  updatePhase(state, dt, false, false)
 }
 
 export function sectionAt(course: RuntimeCourse, x: number) {
@@ -375,37 +381,35 @@ export function stepSim(state: SimState, input: InputState, course: RuntimeCours
     }
   }
 
-  for (const walker of course.walkers) {
+  for (const walker of moversOf(course, 'stompable')) {
     if (state.stomped.includes(walker.id)) continue
-    const x = walkerX(walker, state.time)
+    const x = oscillatorX(walker, state.time)
     const foe = { id: walker.id, x, y: walker.y, w: walker.w, h: walker.h }
     if (!hits(box, foe)) continue
-    const fromAbove = state.vy > 20 && state.prevY <= walker.y + 3
+    const fromAbove = state.vy > PHYSICS.stompVy && state.prevY <= walker.y + PHYSICS.stompSlack
     if (fromAbove) {
       state.stomped.push(walker.id)
-      state.vy = -160
+      state.vy = PHYSICS.stompBounce
       state.jumping = false
       continue
     }
     if (state.assist !== 'invincible') {
-      fail(state, course)
-      updatePhase(state, dt, false, false)
+      stopForFail(state, course, dt)
       return
     }
   }
   if (state.assist !== 'invincible' && course.hazards.some((hazard) => hits(box, hazard))) {
-    fail(state, course)
-    updatePhase(state, dt, false, false)
+    stopForFail(state, course, dt)
     return
   }
   if (state.y > PHYSICS.killY) {
     if (state.assist === 'invincible') {
       const checkpoint = checkpointFor(state, course)
       place(state, checkpoint.x, checkpoint.y)
-    } else {
-      fail(state, course)
+      updatePhase(state, dt, false, false)
+      return
     }
-    updatePhase(state, dt, false, false)
+    stopForFail(state, course, dt)
     return
   }
 
