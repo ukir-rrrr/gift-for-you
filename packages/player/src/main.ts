@@ -14,7 +14,7 @@ import { fetchReveal, flushQueue, postEvent, type Reveal } from './net'
 import { PlatformerMode } from './mode'
 import { loadGift, readFlags, recipientName, giftIdFromLocation } from './route'
 import { integerScale } from './scale'
-import { fold, screenOf, showingGift, type SessionPhase } from './phase'
+import { fold, revealBeat, screenOf, showingGift, typedLetter, type SessionPhase } from './phase'
 import { VirtualPad, type PadKey } from './pad'
 import { PlayScene } from './scene'
 import type { AssistChoice, InputState } from './sim/platformer'
@@ -58,12 +58,14 @@ function boot(share: ShareJson, id: string) {
   const rec = flags.rec || share.options?.recordingModeDefault === true
   let session: SessionPhase = { kind: 'title' }
   let goalSent = false
-  let openFor = 0
+  let beatFor = 0
   let popupId = ''
   let popupLeft = 0
   let reveal: Reveal | null = null
   let letterFull = ''
-  let letterShown = 0
+  let letterTime = 0
+  let letterDone = false
+  let egiftReady = false
   const assistAfter = share.course.assist.autoAssistAfterFails
 
   mode.load(course, { easy, walkFrames, assistAfter })
@@ -132,6 +134,7 @@ function boot(share: ShareJson, id: string) {
 
   function paint() {
     applyScreen()
+    document.body.dataset.beat = revealBeat(session) ?? 'none'
     assist.hidden = session.kind !== 'assist'
     prompt.hidden = !(session.kind === 'reveal' && session.beat === 'prompt')
     const gift = showingGift(session)
@@ -192,7 +195,9 @@ function boot(share: ShareJson, id: string) {
     try {
       reveal = await fetchReveal(id)
       letterFull = reveal.letter.body
-      letterShown = 0
+      letterTime = 0
+      letterDone = false
+      delete letter.dataset.typed
       letterBody.textContent = ''
       retry.hidden = true
       const url = reveal.egift?.url
@@ -207,7 +212,9 @@ function boot(share: ShareJson, id: string) {
         codeBox.hidden = true
         codeBox.textContent = ''
       }
-      egift.hidden = rec || (!url && !code)
+      // The e-gift waits until the letter has finished typing.
+      egiftReady = !rec && Boolean(url || code)
+      egift.hidden = true
     } catch {
       retry.hidden = false
       egift.hidden = true
@@ -240,20 +247,29 @@ function boot(share: ShareJson, id: string) {
       }
     }
     const prev = session
-    if (prev.kind === 'reveal' && prev.beat === 'show') openFor += dt
-    else openFor = 0
+    const beatBefore = revealBeat(prev)
+    if (beatBefore && beatBefore !== 'prompt') beatFor += dt
     const opened = edge.open
     edge.open = false
-    session = fold(prev, { atGoal: snap.atGoal, assist: snap.assist }, opened, openFor)
+    session = fold(prev, { atGoal: snap.atGoal, assist: snap.assist }, opened, beatFor)
+    if (revealBeat(session) !== beatBefore) beatFor = 0
+    scene.revealBeat = revealBeat(session)
+    scene.beatTime = beatFor
     paint()
     if (session.kind === 'letter' && prev.kind !== 'letter') void openLetter()
     if (snap.atGoal && !goalSent) {
       goalSent = true
       void postEvent(id, 'goal_reached')
     }
-    if (session.kind === 'letter' && letterFull) {
-      letterShown += dt * 28
-      letterBody.textContent = [...letterFull].slice(0, Math.floor(letterShown)).join('')
+    if (session.kind === 'letter' && letterFull && !letterDone) {
+      letterTime += dt
+      const typed = typedLetter(letterFull, letterTime)
+      letterBody.textContent = typed.text
+      if (typed.done) {
+        letterDone = true
+        letter.dataset.typed = '1'
+        egift.hidden = !egiftReady
+      }
     }
     fit()
   }
@@ -299,7 +315,7 @@ function boot(share: ShareJson, id: string) {
     mode.load(course, { easy, walkFrames, assistAfter })
     scene.mount(mode, course, share.goal.giftItem.itemId)
     goalSent = false
-    openFor = 0
+    beatFor = 0
     popupId = ''
     popupLeft = 0
     memory.hidden = true
@@ -349,6 +365,10 @@ function boot(share: ShareJson, id: string) {
   })
   must('confirm-cancel').addEventListener('click', () => {
     confirm.hidden = true
+  })
+  // Tapping the letter finishes the typewriter at once.
+  letterBody.addEventListener('click', () => {
+    if (letterFull) letterTime = Number.MAX_SAFE_INTEGER
   })
   retry.addEventListener('click', () => {
     void openLetter()

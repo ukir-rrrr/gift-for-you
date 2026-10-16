@@ -8,6 +8,7 @@ import {
 } from '@gfy/catalog'
 import Phaser from 'phaser'
 import { glowAlpha } from './fx'
+import { BEAT_SECONDS, type RevealBeat } from './phase'
 import type { PlatformerMode } from './mode'
 import { interpolatedFeet, type InputState, type Snapshot } from './sim/platformer'
 
@@ -57,6 +58,8 @@ export class PlayScene extends Phaser.Scene {
   playing = false
   reduceFlash = false
   giftOpen = false
+  revealBeat: RevealBeat | null = null
+  beatTime = 0
   giftItemId = 'scarf'
   readInput: () => InputState = () => EMPTY
   onTick: ((dt: number) => void) | null = null
@@ -70,6 +73,7 @@ export class PlayScene extends Phaser.Scene {
   private forest!: Phaser.GameObjects.TileSprite
   private rays: Phaser.GameObjects.Image[] = []
   private sparks: Phaser.GameObjects.Image[] = []
+  private flash!: Phaser.GameObjects.Image
   private world: Phaser.GameObjects.GameObject[] = []
   private coins = new Map<string, Phaser.GameObjects.Image>()
   private platforms = new Map<string, Phaser.GameObjects.Image>()
@@ -120,7 +124,17 @@ export class PlayScene extends Phaser.Scene {
     this.gift = this.add.image(0, 0, 'pedestal_gift', 'gift').setOrigin(0.5, 1).setDepth(5)
     this.hero = this.add.sprite(40, 272, 'hero_idle', 0).setOrigin(0.5, 1).setDepth(6)
     this.item = this.add.image(0, 0, 'item-scarf').setOrigin(0.5, 1).setDepth(9).setVisible(false)
-    this.sparks = [0, 1, 2, 3].map(() => this.add.image(0, 0, 'spark').setDepth(10))
+    this.sparks = [0, 1, 2, 3, 4, 5].map(() => this.add.image(0, 0, 'spark').setDepth(10))
+    if (!this.textures.exists('flash')) {
+      const flash = this.textures.createCanvas('flash', 1, 1)
+      if (flash) {
+        flash.context.fillStyle = '#f4ecd8'
+        flash.context.fillRect(0, 0, 1, 1)
+        flash.refresh()
+      }
+    }
+    this.flash = this.add.image(0, 0, 'flash').setOrigin(0, 0).setDisplaySize(180, 320).setScrollFactor(0).setDepth(11)
+    this.flash.setVisible(false)
     this.game.events.emit('gfy-ready')
   }
 
@@ -245,25 +259,44 @@ export class PlayScene extends Phaser.Scene {
     }
     const glow = glowAlpha(snap.time, this.reduceFlash)
     const atPedestal = snap.x > course.goal.x - 40
-    this.gift.setVisible(!this.giftOpen)
-    this.glow.setVisible(!this.giftOpen)
+    const beat = this.revealBeat
+    const t = this.beatTime
+    const giftX = course.goal.x + PEDESTAL_DX
+    const giftY = course.goal.y - PEDESTAL_H - GIFT_H / 2
+    const boxed = beat === null || beat === 'prompt' || beat === 'shake'
+    // Beat 1: the box wobbles harder as it is about to open.
+    const wobble = beat === 'shake' ? Math.round(Math.sin(t * 38) * (1 + (2 * t) / BEAT_SECONDS.shake)) : 0
+    this.gift.setVisible(boxed)
+    this.gift.setX(giftX + wobble)
+    this.glow.setVisible(boxed)
     this.glow.setAlpha(glow)
     this.item.setVisible(this.giftOpen)
     if (this.giftOpen) this.item.setPosition(x, y - 30)
-    const giftX = course.goal.x + PEDESTAL_DX
-    const giftY = course.goal.y - PEDESTAL_H - GIFT_H / 2
+    // Beat 2: one soft flash, or with flashing reduced only sparks drifting out.
+    const burst = beat === 'burst' ? Math.min(1, t / BEAT_SECONDS.burst) : -1
+    this.flash.setVisible(burst >= 0 && !this.reduceFlash)
+    if (burst >= 0) this.flash.setAlpha(0.7 * (1 - burst))
     for (const [i, ray] of this.rays.entries()) {
-      const show = !this.reduceFlash && atPedestal
+      const show = !this.reduceFlash && (atPedestal || burst >= 0)
       ray.setVisible(show)
       ray.setPosition(giftX, giftY)
-      ray.setAlpha(show ? glow * 0.55 : 0)
+      ray.setAlpha(show ? (burst >= 0 ? 0.8 * (1 - burst) : glow * 0.55) : 0)
+      ray.setScale(burst >= 0 ? 1 + burst : 1)
       ray.setAngle(-24 + i * 24 + Math.sin(snap.time * 1.1 + i) * 6)
     }
     for (const [i, spark] of this.sparks.entries()) {
-      const show = !this.reduceFlash && atPedestal
-      const t = snap.time * 1.4 + i * 1.7
+      if (burst >= 0) {
+        const angle = (i / this.sparks.length) * Math.PI * 2
+        const r = 6 + burst * 40
+        spark.setVisible(true)
+        spark.setPosition(Math.round(giftX + Math.cos(angle) * r), Math.round(giftY + Math.sin(angle) * r))
+        spark.setAlpha(1 - burst * 0.8)
+        continue
+      }
+      const show = !this.reduceFlash && atPedestal && i < 4
+      const st = snap.time * 1.4 + i * 1.7
       spark.setVisible(show)
-      spark.setPosition(giftX + Math.cos(t) * 14, giftY + Math.sin(t * 1.3) * 10)
+      spark.setPosition(giftX + Math.cos(st) * 14, giftY + Math.sin(st * 1.3) * 10)
       spark.setAlpha(show ? 0.4 + 0.4 * glow : 0)
     }
   }
