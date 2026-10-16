@@ -380,7 +380,7 @@ describe('revoke and expiry', () => {
     expect((await ctx.request(`/s/${published.shareId}/share`)).status).toBe(404)
     const list = (await (await ctx.request('/api/gifts', { key })).json()) as { gifts: { status: string }[] }
     expect(list.gifts[0].status).toBe('expired')
-    expect(await sweep(ctx.env.DB, ctx.env.PHOTOS, ctx.clock.now, 2 * DAY)).toEqual({ expired: 1, drafts: 0 })
+    expect(await sweep(ctx.env.DB, ctx.env.PHOTOS, ctx.clock.now, 2 * DAY)).toEqual({ expired: 1, drafts: 0, purged: 0 })
     await gone(ctx, published.shareId)
   })
 
@@ -390,7 +390,7 @@ describe('revoke and expiry', () => {
     const giftId = await draft(ctx, key)
     await upload(ctx, key, giftId, 'p-1')
     ctx.clock.now += 3 * DAY
-    expect(await sweep(ctx.env.DB, ctx.env.PHOTOS, ctx.clock.now, 2 * DAY)).toEqual({ expired: 0, drafts: 1 })
+    expect(await sweep(ctx.env.DB, ctx.env.PHOTOS, ctx.clock.now, 2 * DAY)).toEqual({ expired: 0, drafts: 1, purged: 0 })
     expect(ctx.bucket.objects.size).toBe(0)
     expect((await upload(ctx, key, giftId, 'p-1')).status).toBe(404)
   })
