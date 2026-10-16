@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "e2e": "pnpm --filter @gfy/player e2e",
-    "generate-art": "pnpm --filter @gfy/player generate-art"
+    "generate-art": "pnpm --filter @gfy/player generate-art",
+    "e2e:creator": "pnpm --filter @gfy/creator e2e"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
