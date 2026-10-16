@@ -129,7 +129,11 @@ export async function fetchReveal(id: string): Promise<Reveal> {
   } catch {
     raw = null
   }
-  if (raw === null) raw = id === 'offlist' ? SAMPLE_REVEALS.offlist : SAMPLE_REVEALS.demo
+  if (raw === null) {
+    // Only the bundled samples may fall back; a real gift's letter comes from the server or not at all.
+    if (id !== 'demo' && id !== 'offlist') throw new Error('reveal unavailable')
+    raw = SAMPLE_REVEALS[id]
+  }
   const parsed = parseRevealJson(raw)
   if (!parsed.ok) throw new Error(parsed.issues.join(','))
   return parsed.value

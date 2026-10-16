@@ -441,13 +441,20 @@ function boot(share: ShareJson, id: string) {
     const active = (['left', 'right', 'jump'] as const).filter((name) => pad[name])
     document.body.dataset.pad = active.length ? active.join(' ') : 'idle'
   })
-  // iOS Safari ignores user-scalable=no; block pinch and double-tap zoom while playing.
-  document.addEventListener('gesturestart', (event) => event.preventDefault())
-  document.addEventListener('dblclick', (event) => event.preventDefault())
+  // iOS Safari ignores user-scalable=no; block pinch and double-tap zoom while playing only, so the letter can be zoomed.
+  const blockZoom = (event: Event) => {
+    if (document.body.dataset.screen === 'play') event.preventDefault()
+  }
+  document.addEventListener('gesturestart', blockZoom)
+  document.addEventListener('dblclick', blockZoom)
 
   window.addEventListener('keydown', (event) => {
     if (event.repeat) return
     const key = event.key.toLowerCase()
+    // Space on a focused button (はじめる, タップして開ける, the letter and confirm screens) activates it.
+    // The dock toggles keep focus after a click, so there Space still jumps.
+    const target = event.target instanceof Element ? event.target : null
+    if (key === ' ' && target?.closest('button, a') && !target.closest('#tools')) return
     if (key === 'arrowleft' || key === 'a') press(keys, 'left', true)
     if (key === 'arrowright' || key === 'd') press(keys, 'right', true)
     if (key === 'arrowup' || key === 'w' || key === ' ') {

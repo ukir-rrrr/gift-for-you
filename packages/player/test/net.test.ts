@@ -105,5 +105,7 @@ describe('beacons', () => {
     await postEvent('demo', 'goal_reached')
     const reveal = await fetchReveal('demo')
     expect(reveal.letter.body).toContain('健太')
+    await postEvent('real-gift', 'goal_reached')
+    await expect(fetchReveal('real-gift')).rejects.toThrow('reveal unavailable')
   })
 })

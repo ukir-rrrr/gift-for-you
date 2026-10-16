@@ -16,11 +16,28 @@ function decodeSegment(raw: string): string | null {
   }
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
+const BODY_MAX = 2048
+
+/** Resolves null once the body passes BODY_MAX; beacons are tiny. */
+function readBody(req: IncomingMessage): Promise<string | null> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = []
-    req.on('data', (chunk: Buffer | string) => chunks.push(Buffer.from(chunk)))
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    let size = 0
+    let over = false
+    req.on('data', (chunk: Buffer | string) => {
+      if (over) return
+      const buf = Buffer.from(chunk)
+      size += buf.length
+      if (size > BODY_MAX) {
+        over = true
+        resolve(null)
+        return
+      }
+      chunks.push(buf)
+    })
+    req.on('end', () => {
+      if (!over) resolve(Buffer.concat(chunks).toString('utf8'))
+    })
   })
 }
 
@@ -90,6 +107,11 @@ function giftApi(): Plugin {
         return
       }
       void readBody(req).then((raw) => {
+        if (raw === null) {
+          res.statusCode = 413
+          res.end()
+          return
+        }
         try {
           const body = JSON.parse(raw) as { type?: string }
           if (body.type === 'goal_reached') goals.add(id)
