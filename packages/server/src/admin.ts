@@ -348,7 +348,7 @@ ${reveal?.egift?.url ? `<p>eギフト：${htmlEscape(reveal.egift.url)}</p>` : '
       .join('')
     const added = results
       .map(
-        (row) => `<tr data-testid="domain-${row.domain}"><td>${htmlEscape(row.domain)}</td><td>${htmlEscape(row.note ?? '')}（${fmt(row.added_at)}）</td>
+        (row) => `<tr data-testid="domain-${row.domain}"><td>${htmlEscape(row.domain)}</td><td>追加${row.note ? `：${htmlEscape(row.note)}` : ''}（${fmt(row.added_at)}）</td>
 <td>${form(session, '/admin/domains/delete', '外す', 'secondary', `<input type="hidden" name="domain" value="${htmlEscape(row.domain)}" />`)}</td></tr>`,
       )
       .join('')
