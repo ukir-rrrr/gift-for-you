@@ -237,6 +237,13 @@ test('a photo that fails moderation blocks publishing until it is replaced', asy
   await page.screenshot({ path: `${SHOTS}/13-moderation-rejected.png` })
   await tid(page, 'fix-photos').click()
   await expect(tid(page, 'step-coins')).toContainText('差し替えてください')
+  const chooser = page.waitForEvent('filechooser')
+  await tid(page, 'coin-replace-1').click()
+  await (await chooser).setFiles({ name: 'other.jpg', mimeType: 'image/jpeg', buffer: await photoWithGps(page, '#1a1614', 900, 900) })
+  await page.unroute(`${API}/api/gifts/*/photos/*`)
+  await page.goBack()
+  await tid(page, 'recheck').click()
+  await expect(tid(page, 'moderation-ok')).toBeVisible({ timeout: 30000 })
 })
 
 test('the draft is saved on the device and restored after a reload', async ({ page }) => {

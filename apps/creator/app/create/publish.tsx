@@ -147,6 +147,7 @@ export default function PublishStep() {
             testID="fix-photos"
             onPress={() => router.push({ pathname: '/create/coins', params: { rejected: phase.refs.join(',') } })}
           />
+          <Button label="差し替えたので、もう一度チェック" kind="secondary" testID="recheck" onPress={() => void check()} />
         </Card>
       ) : null}
 

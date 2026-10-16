@@ -74,16 +74,22 @@ export async function deleteDraft(db: D1Database, bucket: R2Bucket, giftId: stri
   ])
 }
 
-/** Fixed-window counter. Returns false once `max` attempts were used inside `windowMs`. */
+/**
+ * Fixed-window counter. Returns false once `max` attempts were used inside `windowMs`.
+ * One UPSERT, so two guesses racing each other cannot both slip under the limit.
+ */
 export async function takeAttempt(db: D1Database, key: string, max: number, windowMs: number, now: number): Promise<boolean> {
-  const row = await db.prepare('SELECT window_start, count FROM attempts WHERE key = ?').bind(key).first<{ window_start: number; count: number }>()
-  if (!row || now - row.window_start >= windowMs) {
-    await db.prepare('INSERT OR REPLACE INTO attempts (key, window_start, count) VALUES (?, ?, 1)').bind(key, now).run()
-    return true
-  }
-  if (row.count >= max) return false
-  await db.prepare('UPDATE attempts SET count = count + 1 WHERE key = ?').bind(key).run()
-  return true
+  const row = await db
+    .prepare(
+      `INSERT INTO attempts (key, window_start, count) VALUES (?1, ?2, 1)
+       ON CONFLICT(key) DO UPDATE SET
+         count = CASE WHEN ?2 - window_start >= ?3 THEN 1 ELSE count + 1 END,
+         window_start = CASE WHEN ?2 - window_start >= ?3 THEN ?2 ELSE window_start END
+       RETURNING count`,
+    )
+    .bind(key, now, windowMs)
+    .first<{ count: number }>()
+  return (row?.count ?? Number.POSITIVE_INFINITY) <= max
 }
 
 export async function sweep(db: D1Database, bucket: R2Bucket, now: number, draftTtlMs: number): Promise<{ expired: number; drafts: number }> {
