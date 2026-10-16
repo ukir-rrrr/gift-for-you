@@ -29,6 +29,42 @@ export const PALETTE = [
   '#4e5c48',
 ] as const
 
+// Shared 32-colour palette of the hand-made sprite pack in public/assets/gfy.
+export const ART_PALETTE = [
+  '#e4f1f9',
+  '#fff8d6',
+  '#ddf0f8',
+  '#bedff3',
+  '#fae5aa',
+  '#eed5ad',
+  '#ffe27a',
+  '#efc289',
+  '#81b6e5',
+  '#70a8e0',
+  '#8caeb0',
+  '#82a6a8',
+  '#bbb057',
+  '#bc9766',
+  '#708f82',
+  '#89aa26',
+  '#a66732',
+  '#5e7156',
+  '#625b56',
+  '#735739',
+  '#5b6c32',
+  '#44563f',
+  '#723f1f',
+  '#4c5130',
+  '#623b1d',
+  '#6b3017',
+  '#3f3b37',
+  '#4d3724',
+  '#333325',
+  '#462712',
+  '#301c0e',
+  '#1f140b',
+] as const
+
 export type PaletteHex = (typeof PALETTE)[number]
 
 const PALETTE_SET = new Set<string>(PALETTE)

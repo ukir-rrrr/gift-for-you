@@ -16,7 +16,7 @@ export const PHYSICS = {
   skidSpeed: 28,
   apex: 40,
   width: 10,
-  height: 20,
+  height: 24,
   killY: 360,
   stepUp: 4,
   goalSlack: 48,

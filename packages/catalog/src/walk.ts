@@ -126,16 +126,3 @@ export function heroFrameFor(pose: PoseName, walkFrame: number, count: WalkFrame
   if (pose === 'walk') return walkCycle(count).frames[walkFrame % count]
   return POSE_FRAMES[pose]
 }
-
-export const ANIM_INDEX = {
-  idle: [0, 1],
-  walk6: [2, 3, 4, 5, 6, 7],
-  walk8: [8, 9, 10, 11, 12, 13, 14, 15],
-  'jump-up': [16],
-  'jump-apex': [17],
-  'jump-fall': [18],
-  land: [19],
-  turn: [20],
-} as const
-
-export const SHEET_FRAMES = 21

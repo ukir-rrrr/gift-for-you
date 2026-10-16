@@ -54,7 +54,7 @@ button:active, a:active {
 
 #frame {
   position: relative;
-  background: #8fadc0;
+  background: #70a8e0;
 }
 
 #frame canvas {
@@ -233,7 +233,7 @@ body[data-screen="boot"] #dock {
 
 #title {
   z-index: 4;
-  background: #8fadc0;
+  background: linear-gradient(#70a8e0 0 17%, #81b6e5 17% 36%, #bedff3 36%);
   flex-direction: column;
   align-items: center;
   justify-content: center;

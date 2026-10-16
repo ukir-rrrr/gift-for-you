@@ -1,5 +1,5 @@
 import type { CourseTemplate, Rect } from './course'
-import { COURSE_HEIGHT, GROUND_Y, STEP_RUN, STEP_W, WALKER_H, WALKER_W } from './course'
+import { COURSE_HEIGHT, GROUND_Y, PLATFORM_H, STEP_RUN, STEP_W, THORN_H, WALKER_H, WALKER_W } from './course'
 import type { ObstacleFill, ObstaclePreset } from './presets'
 
 export type CoinInput = { order: number; photoRef: string; message: string }
@@ -81,7 +81,7 @@ function applyFill(
     case 'gap':
       return carve(solids, slot.x, fill.w)
     case 'thorns':
-      hazards.push({ id: slot.id, x: slot.x, y: GROUND_Y - 10, w: fill.w, h: 10 })
+      hazards.push({ id: slot.id, x: slot.x, y: GROUND_Y - THORN_H, w: fill.w, h: THORN_H })
       return solids
     case 'moving-platform':
       movers.push({
@@ -90,7 +90,7 @@ function applyFill(
         originX: slot.x,
         y: GROUND_Y - 52,
         w: fill.w,
-        h: 8,
+        h: PLATFORM_H,
         travel: fill.travel,
         period: fill.period,
       })

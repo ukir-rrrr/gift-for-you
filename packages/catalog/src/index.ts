@@ -12,7 +12,7 @@ export { CATALOG_VERSION, GIFT_ITEMS, giftItem } from './gifts'
 export type { GiftItemId } from './gifts'
 export { HERO_PARTS, DEFAULT_HERO, heroPart } from './hero'
 export type { HeroPart, PartKind } from './hero'
-export { PALETTE, SKY, HILL, GRASS, OUTLINE, INK, isPaletteHex } from './palette'
+export { ART_PALETTE, PALETTE, SKY, HILL, GRASS, OUTLINE, INK, isPaletteHex } from './palette'
 export type { PaletteHex } from './palette'
 export { PRESETS, presetById, presetForDifficulty } from './presets'
 export type { ObstacleFill, ObstaclePreset } from './presets'
@@ -22,6 +22,9 @@ export {
   COURSE_01_BEATS,
   WALKER_W,
   WALKER_H,
+  THORN_H,
+  PLATFORM_W,
+  PLATFORM_H,
   STEP_W,
   STEP_RUN,
   buildCourse01,
@@ -31,9 +34,7 @@ export type { CourseTemplate, Rect } from './course'
 export { compileCourse, moversOf, oscillatorFacing, oscillatorX, solidsAt } from './compile'
 export type { CoinInput, Mover, MoverRole, RuntimeCoin, RuntimeCourse } from './compile'
 export {
-  ANIM_INDEX,
   POSE_FRAMES,
-  SHEET_FRAMES,
   SHEET_FRAME_H,
   SHEET_FRAME_W,
   WALK_6,

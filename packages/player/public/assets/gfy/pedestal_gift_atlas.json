@@ -1,0 +1,36 @@
+{
+ "frames": {
+  "pedestal": {
+   "frame": {
+    "x": 0,
+    "y": 4,
+    "w": 16,
+    "h": 20
+   }
+  },
+  "gift": {
+   "frame": {
+    "x": 17,
+    "y": 10,
+    "w": 14,
+    "h": 14
+   }
+  },
+  "gift_glow": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 24,
+    "h": 24
+   }
+  }
+ },
+ "meta": {
+  "image": "pedestal_gift.png",
+  "size": {
+   "w": 56,
+   "h": 24
+  },
+  "scale": "1"
+ }
+}

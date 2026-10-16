@@ -15,7 +15,7 @@ import { PlatformerMode } from './mode'
 import { loadGift, readFlags, recipientName, giftIdFromLocation } from './route'
 import { integerScale } from './scale'
 import { fold, screenOf, showingGift, type SessionPhase } from './phase'
-import { PlayScene, type HeroLook } from './scene'
+import { PlayScene } from './scene'
 import type { InputState } from './sim/platformer'
 
 const held = { left: false, right: false, jump: false }
@@ -59,12 +59,6 @@ function boot(share: ShareJson, id: string) {
   }))
   const template = flags.e2e ? buildCourseE2E() : buildCourse01()
   let course = compileCourse(template, presetForDifficulty(difficulty), coins)
-  const look: HeroLook = {
-    hairId: share.hero?.hairId ?? 'hair-bob',
-    skinId: share.hero?.skinId ?? 'skin-light',
-    outfitId: share.hero?.outfitId ?? 'outfit-shirt',
-    colors: share.hero?.colors,
-  }
   const scene = new PlayScene()
   const mode = new PlatformerMode()
   const music = new Music()
@@ -88,7 +82,7 @@ function boot(share: ShareJson, id: string) {
     width: 180,
     height: 320,
     parent: 'frame',
-    backgroundColor: '#8fadc0',
+    backgroundColor: '#70a8e0',
     pixelArt: true,
     roundPixels: true,
     banner: false,
@@ -101,7 +95,7 @@ function boot(share: ShareJson, id: string) {
   title.textContent = copy.title(recipientName(share))
   const start = must<HTMLButtonElement>('btn-start')
   game.events.once('gfy-ready', () => {
-    scene.mount(mode, course, look, share.goal.giftItem.itemId)
+    scene.mount(mode, course, share.goal.giftItem.itemId)
     scene.reduceFlash = reduceFlash
     start.disabled = false
     start.textContent = copy.start
@@ -308,7 +302,7 @@ function boot(share: ShareJson, id: string) {
     difficulty = next
     course = compileCourse(template, presetForDifficulty(difficulty), coins)
     mode.load(course, { easy, walkFrames, assistAfter })
-    scene.mount(mode, course, look, share.goal.giftItem.itemId)
+    scene.mount(mode, course, share.goal.giftItem.itemId)
     goalSent = false
     openFor = 0
     popupId = ''

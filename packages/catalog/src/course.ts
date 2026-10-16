@@ -1,7 +1,10 @@
 export const GROUND_Y = 272
 export const COURSE_HEIGHT = 320
-export const WALKER_W = 12
-export const WALKER_H = 10
+export const WALKER_W = 14
+export const WALKER_H = 12
+export const THORN_H = 12
+export const PLATFORM_W = 32
+export const PLATFORM_H = 16
 export const STEP_W = 40
 export const STEP_RUN = 36
 

@@ -208,15 +208,15 @@ describe('course rules', () => {
   it('stomps a walker from above and returns to the checkpoint on a side bump', () => {
     const course: RuntimeCourse = {
       ...flat(400),
-      movers: [{ id: 'w1', role: 'stompable', originX: 140, y: 262, w: WALKER_W, h: WALKER_H, travel: 0, period: 8 }],
+      movers: [{ id: 'w1', role: 'stompable', originX: 140, y: 272 - WALKER_H, w: WALKER_W, h: WALKER_H, travel: 0, period: 8 }],
       spawn: { x: 40, y: 272 },
       goal: { x: 380, y: 272 },
     }
     const stomp = createState(course)
     stomp.x = 146
     stomp.prevX = 146
-    stomp.y = 264
-    stomp.prevY = 258
+    stomp.y = 272 - WALKER_H + 2
+    stomp.prevY = stomp.y - 6
     stomp.vy = 90
     stomp.grounded = false
     stomp.wasGrounded = false

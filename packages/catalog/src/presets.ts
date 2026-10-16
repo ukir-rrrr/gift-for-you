@@ -1,4 +1,5 @@
 import type { Difficulty } from '@gfy/schema'
+import { PLATFORM_W } from './course'
 
 export type ObstacleFill =
   | { type: 'none' }
@@ -26,7 +27,7 @@ const thorn = (w: number): ObstacleFill => ({ type: 'thorns', w })
 const gap = (w: number): ObstacleFill => ({ type: 'gap', w })
 const platform = (period: number, travel = 28): ObstacleFill => ({
   type: 'moving-platform',
-  w: 36,
+  w: PLATFORM_W,
   travel,
   period,
 })

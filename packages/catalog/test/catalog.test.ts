@@ -1,6 +1,7 @@
 import { parseShareJson } from '@gfy/schema'
 import { describe, expect, it } from 'vitest'
 import {
+  ART_PALETTE,
   COURSE_HEIGHT,
   GROUND_Y,
   PALETTE,
@@ -32,6 +33,7 @@ const coins = [
 describe('palette and walk', () => {
   it('keeps the style palette at 28 colors', () => {
     expect(new Set(PALETTE).size).toBe(28)
+    expect(new Set(ART_PALETTE).size).toBe(32)
   })
 
   it('measures a two-step stride and a zero-slip contact', () => {
