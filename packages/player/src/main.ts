@@ -411,6 +411,9 @@ function boot(share: ShareJson, id: string) {
     }
     confirm.hidden = false
   })
+  must('confirm-go').addEventListener('click', () => {
+    confirm.hidden = true
+  })
   must('confirm-cancel').addEventListener('click', () => {
     confirm.hidden = true
   })

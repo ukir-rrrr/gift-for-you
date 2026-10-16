@@ -31,15 +31,16 @@ Open `http://127.0.0.1:5173/g/demo`. `?e2e=1` uses the short course and easy aut
 
 ## Gaps against section 16
 
-The sample gift clears in the browser, and the normal-course bot stays inside 90 to 150 seconds of sim time. Schema, palette, stride, physics, preset slots, and emoji stripping have unit tests. Playwright covers title, play, coin popup, pedestal, and letter on Chromium at 390×844.
+The sample gift clears in the browser, and the normal-course bot stays inside 90 to 150 seconds of sim time. Schema, palette, stride, physics, preset slots, emoji stripping, assist choices, reveal beats, the typewriter, sound cues, settings, and beacons have unit tests. Playwright covers title, play, coin popup and photo fallback, the help menu, the three opening beats, the letter, the e-gift confirm (allowed and off-list), recording mode, the rotate prompt, settings persistence, and the shared error page on Chromium at 390×844 and an iPhone 13 profile.
 
 These acceptance items are still open.
 
-- The automated browser is desktop Chromium at 390×844. LINE and Instagram in-app browsers have no capture in this tree.
+- The automated browser is desktop Chromium with phone viewports. LINE and Instagram in-app browsers and real iOS Safari have no capture in this tree.
 - The sim is locked to 1/60 s. This machine has no mid-range device fps sample.
-- riku has not watched a capture or signed the art.
+- riku has not watched a capture or signed the art or the sound.
 - The clear time in `sim.test.ts` is the bot. Three people have not played the course.
-- The create form, moderation, and 14-day expiry stay out of this task.
-- Beacons POST to Vite middleware at `/s/{id}/events` and queue in `localStorage` when that POST fails. The middleware answers 204 and keeps `goal_reached` in memory for the reveal check. It does not store the section 13 counts.
-- The dev server returns the letter only after `goal_reached`. On a static host, a failed GET falls back to the bundled letter once the session flag is set.
+- The create form, moderation, photo upload, and 14-day expiry need a hosted backend and storage contract; they stay out of this task.
+- Beacons POST to Vite middleware at `/s/{id}/events`. The middleware answers 204 and keeps `goal_reached` in memory for the reveal check. Production needs a real endpoint that stores the section 13 counts.
+- The dev server returns the letter only after `goal_reached`. On a static host, a failed GET falls back to the bundled letter once the goal flag is set, so letters there are not secret. Production needs the server-side gate.
+- The e-gift allowlist is a constant in `@gfy/schema`. Production needs the operator-managed list.
 - Phase 2 stays for a later GO.
