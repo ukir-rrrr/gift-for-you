@@ -2,6 +2,7 @@ import { catalogIndex } from '@gfy/catalog'
 import { isExpired, parseRevealJson, parseShareJson, type ShareJson } from '@gfy/schema'
 import { fetchReveal, type Reveal } from './net'
 import { loadGift } from './route'
+import { viewerKey } from './safety'
 
 export type Egift = NonNullable<Reveal['egift']>
 
@@ -28,7 +29,7 @@ async function postUnlock(id: string, passphrase: string): Promise<UnlockResult>
   try {
     const res = await fetch(`/s/${encodeURIComponent(id)}/unlock`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-gfy-viewer': viewerKey() },
       body: JSON.stringify({ passphrase }),
       credentials: 'omit',
     })
@@ -60,7 +61,7 @@ function remoteSource(id: string, share: ShareJson): GiftSource {
     share,
     preview: false,
     photoUrl: (ref) => `${base}/photos/${encodeURIComponent(ref)}`,
-    reveal: () => fetchReveal(id),
+    reveal: () => fetchReveal(id, viewerKey()),
     unlock: (passphrase) => postUnlock(id, passphrase),
   }
 }

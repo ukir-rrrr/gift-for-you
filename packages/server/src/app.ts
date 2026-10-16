@@ -46,7 +46,7 @@ import {
   live,
   photoKey,
   photosOf,
-  senderOf,
+  senderKeys,
   takeAttempt,
   type GiftRow,
 } from './store'
@@ -61,6 +61,7 @@ const UNLOCK_TRIES = { max: 5, windowMs: 10 * 60_000 }
 const REVOKE_TRIES = { max: 10, windowMs: 3600_000 }
 const REPORT_TRIES = { max: 10, windowMs: 3600_000 }
 const REMOVAL_TRIES = { max: 5, windowMs: 3600_000 }
+const ANALYTICS_TRIES = { max: 60, windowMs: 3600_000 }
 const PHOTO_REF = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const SHARE_ID = /^[0-9A-Za-z]{10}$/
 const VIEWER_KEY = /^[A-Za-z0-9_-]{22,64}$/
@@ -245,6 +246,10 @@ export function createApp(options: AppOptions = {}) {
     const body = (await readJson(c, 1024)) as { name?: unknown; props?: unknown } | undefined
     const name = String(body?.name ?? '') as EventName
     if (!CLIENT_EVENTS.includes(name)) return fail(c, 400, 'unknown_event')
+    // Per device; past the limit events are dropped quietly so the app never notices.
+    if (!(await takeAttempt(c.env.DB, `analytics:${c.get('deviceId')}`, ANALYTICS_TRIES.max, ANALYTICS_TRIES.windowMs, c.get('services').now()))) {
+      return c.body(null, 204)
+    }
     await track(c.env.DB, name, c.get('services').now(), (body?.props ?? {}) as Record<string, string>)
     return c.body(null, 204)
   })
@@ -444,9 +449,19 @@ export function createApp(options: AppOptions = {}) {
     if (row.refunded_at !== null) return fail(c, 402, 'purchase_invalid', { reason: 'refunded' })
     const tier = tierByProduct(row.product_id)
     if (!tier) return fail(c, 402, 'purchase_invalid', { reason: 'product' })
-    const claimed = await db.prepare('UPDATE purchases SET gift_id = ? WHERE transaction_id = ? AND gift_id IS NULL').bind(gift.id, row.transaction_id).run()
+    // A purchase already on this gift (a retry after a dropped answer) counts as done.
+    if (row.gift_id !== null && row.gift_id !== gift.id) return fail(c, 409, 'purchase_used')
+    // Both rows change together, so a failure can never leave a claimed purchase on a gift without it.
+    const [claimed] = await db.batch([
+      db.prepare('UPDATE purchases SET gift_id = ? WHERE transaction_id = ? AND (gift_id IS NULL OR gift_id = ?)').bind(gift.id, row.transaction_id, gift.id),
+      db
+        .prepare(
+          `UPDATE gifts SET purchase_tx = ?, tier = ? WHERE id = ? AND purchase_tx IS NULL
+           AND EXISTS (SELECT 1 FROM purchases WHERE transaction_id = ? AND gift_id = ?)`,
+        )
+        .bind(row.transaction_id, tier.id, gift.id, row.transaction_id, gift.id),
+    ])
     if (claimed.meta.changes !== 1) return fail(c, 409, 'purchase_used')
-    await db.prepare('UPDATE gifts SET purchase_tx = ?, tier = ? WHERE id = ?').bind(row.transaction_id, tier.id, gift.id).run()
     await event(c, 'purchase_verified', { tier: tier.id, sandbox: row.is_sandbox === 1 })
     return json(c, 200, { ok: true, tier: tier.id })
   })
@@ -561,25 +576,29 @@ export function createApp(options: AppOptions = {}) {
     if (!ev || typeof ev.id !== 'string' || typeof ev.type !== 'string') return fail(c, 400, 'invalid_event')
     const db = c.env.DB
     const now = c.get('services').now()
-    const fresh = await db.prepare('INSERT OR IGNORE INTO webhook_events (id, type, received_at) VALUES (?, ?, ?)').bind(ev.id, ev.type, now).run()
-    if (fresh.meta.changes !== 1) return json(c, 200, { ok: true, duplicate: true })
     const transactionId = typeof ev.transaction_id === 'string' ? ev.transaction_id : ''
     const productId = typeof ev.product_id === 'string' ? ev.product_id : ''
     const sandbox = ev.environment === 'SANDBOX'
+    // The event id and what it records go in one batch: if recording fails, the id is not kept and
+    // RevenueCat's retry is processed instead of being taken for a duplicate. Both writes are idempotent.
+    const writes = [db.prepare('INSERT OR IGNORE INTO webhook_events (id, type, received_at) VALUES (?, ?, ?)').bind(ev.id, ev.type, now)]
     if (ev.type === 'NON_RENEWING_PURCHASE' && transactionId && tierByProduct(productId) && !(sandbox && c.env.REVENUECAT_ALLOW_SANDBOX === '0')) {
       const appUserId = typeof ev.app_user_id === 'string' ? ev.app_user_id : null
-      await db
-        .prepare(
-          `INSERT OR IGNORE INTO purchases (transaction_id, app_user_id, product_id, store, is_sandbox, purchased_at, source, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'webhook', ?)`,
-        )
-        .bind(transactionId, appUserId, productId, String(ev.store ?? 'unknown').toLowerCase(), sandbox ? 1 : 0, Number(ev.purchased_at_ms ?? now), now)
-        .run()
+      writes.push(
+        db
+          .prepare(
+            `INSERT OR IGNORE INTO purchases (transaction_id, app_user_id, product_id, store, is_sandbox, purchased_at, source, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'webhook', ?)`,
+          )
+          .bind(transactionId, appUserId, productId, String(ev.store ?? 'unknown').toLowerCase(), sandbox ? 1 : 0, Number(ev.purchased_at_ms ?? now), now),
+      )
     }
     // A refunded consumable arrives as CANCELLATION. The gift stays; the operator sees the refund.
     if ((ev.type === 'CANCELLATION' || ev.type === 'REFUND') && transactionId) {
-      await db.prepare('UPDATE purchases SET refunded_at = ? WHERE transaction_id = ? AND refunded_at IS NULL').bind(now, transactionId).run()
+      writes.push(db.prepare('UPDATE purchases SET refunded_at = ? WHERE transaction_id = ? AND refunded_at IS NULL').bind(now, transactionId))
     }
+    const [fresh] = await db.batch(writes)
+    if (fresh.meta.changes !== 1) return json(c, 200, { ok: true, duplicate: true })
     return json(c, 200, { ok: true })
   })
 
@@ -604,17 +623,25 @@ export function createApp(options: AppOptions = {}) {
 
   const viewerHash = (c: Ctx, viewer: string) => saltedHash(c, 'viewer', viewer)
 
+  /**
+   * F3-12: a recipient who blocked this sender does not get the gift's share, letter, or e-gift in
+   * that browser. Matched against the sender's device and account, so a block made before the
+   * sender signed in still holds after.
+   */
+  const blockedFor = async (c: Ctx, gift: GiftRow): Promise<boolean> => {
+    const viewer = c.req.header('x-gfy-viewer') ?? ''
+    if (!VIEWER_KEY.test(viewer)) return false
+    const keys = await senderKeys(c.env.DB, gift)
+    const hit = await c.env.DB.prepare(`SELECT 1 AS x FROM blocks WHERE viewer_hash = ? AND sender_id IN (${keys.map(() => '?').join(', ')})`)
+      .bind(await viewerHash(c, viewer), ...keys)
+      .first()
+    return Boolean(hit)
+  }
+
   app.get('/s/:shareId/share', async (c) => {
     const gift = await liveGift(c)
     if (!gift?.share_json) return fail(c, 404, 'not_found')
-    // F3-12: a recipient who blocked this sender does not get the gift in that browser.
-    const viewer = c.req.header('x-gfy-viewer') ?? ''
-    if (VIEWER_KEY.test(viewer)) {
-      const blocked = await c.env.DB.prepare('SELECT 1 AS x FROM blocks WHERE viewer_hash = ? AND sender_id = ?')
-        .bind(await viewerHash(c, viewer), await senderOf(c.env.DB, gift))
-        .first()
-      if (blocked) return fail(c, 403, 'blocked')
-    }
+    if (await blockedFor(c, gift)) return fail(c, 403, 'blocked')
     return c.body(gift.share_json, 200, { 'content-type': 'application/json; charset=utf-8' })
   })
 
@@ -657,6 +684,7 @@ export function createApp(options: AppOptions = {}) {
     if (!gift?.reveal_json) return fail(c, 404, 'not_found')
     // The letter waits for a goal_reached beacon, as in Phase 1.
     if (gift.goal_at === null) return fail(c, 403, 'not_ready')
+    if (await blockedFor(c, gift)) return fail(c, 403, 'blocked')
     const reveal = JSON.parse(gift.reveal_json) as RevealJson
     if (reveal.egift && gift.passphrase_hash) reveal.egift = { kind: reveal.egift.kind, locked: true }
     return json(c, 200, reveal)
@@ -665,6 +693,7 @@ export function createApp(options: AppOptions = {}) {
   app.post('/s/:shareId/unlock', async (c) => {
     const gift = await liveGift(c)
     if (!gift?.reveal_json || gift.goal_at === null) return fail(c, 404, 'not_found')
+    if (await blockedFor(c, gift)) return fail(c, 403, 'blocked')
     const reveal = JSON.parse(gift.reveal_json) as RevealJson
     if (!reveal.egift) return fail(c, 404, 'not_found')
     if (!gift.passphrase_hash) return json(c, 200, reveal.egift)
@@ -707,10 +736,15 @@ export function createApp(options: AppOptions = {}) {
     const body = (await readJson(c, 1024)) as { viewer?: unknown } | undefined
     const viewer = String(body?.viewer ?? '')
     if (!VIEWER_KEY.test(viewer)) return fail(c, 400, 'invalid_viewer')
-    const inserted = await c.env.DB.prepare('INSERT OR IGNORE INTO blocks (viewer_hash, sender_id, gift_id, created_at) VALUES (?, ?, ?, ?)')
-      .bind(await viewerHash(c, viewer), await senderOf(c.env.DB, gift), gift.id, c.get('services').now())
-      .run()
-    if (inserted.meta.changes === 1) await event(c, 'sender_blocked')
+    const hash = await viewerHash(c, viewer)
+    const now = c.get('services').now()
+    // Both the device and (when signed in) the account, so later sign-ins or new devices stay blocked.
+    const results = await c.env.DB.batch(
+      (await senderKeys(c.env.DB, gift)).map((key) =>
+        c.env.DB.prepare('INSERT OR IGNORE INTO blocks (viewer_hash, sender_id, gift_id, created_at) VALUES (?, ?, ?, ?)').bind(hash, key, gift.id, now),
+      ),
+    )
+    if (results.some((result) => result.meta.changes === 1)) await event(c, 'sender_blocked')
     return c.body(null, 204)
   })
 

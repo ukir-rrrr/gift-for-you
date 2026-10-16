@@ -142,6 +142,19 @@ describe('F3-03 purchases', () => {
     expect((await post(ctx, '/api/purchases', { platform: 'sandbox', transactionId: 'sandbox:sandbox-orphan-0001' }, { key: deviceKey() })).status).toBe(409)
   })
 
+  it('finishes a claim that stopped half way when the app retries (review: atomic claim)', async () => {
+    const ctx = setup()
+    const key = deviceKey()
+    const giftId = await draftWithContent(ctx, key)
+    const tx = `sandbox-${crypto.randomUUID()}`
+    // The purchase row says this gift, the gift has no purchase: what a crash between the two writes used to leave.
+    await post(ctx, '/api/purchases', { platform: 'sandbox', transactionId: tx }, { key })
+    await ctx.env.DB.prepare('UPDATE purchases SET gift_id = ? WHERE transaction_id = ?').bind(giftId, `sandbox:${tx}`).run()
+    const retry = await post(ctx, `/api/gifts/${giftId}/purchase`, { platform: 'sandbox', transactionId: tx }, { key })
+    expect(await retry.json()).toEqual({ ok: true, tier: 'standard' })
+    expect((await ctx.request(`/api/gifts/${giftId}/publish`, { method: 'POST', key })).status).toBe(201)
+  })
+
   it('answers 503 for the webhook until its secret is set', async () => {
     const ctx = setup()
     expect((await post(ctx, '/webhooks/revenuecat', { event: { id: 'x', type: 'TEST' } })).status).toBe(503)
@@ -352,6 +365,28 @@ describe('F3-12 UGC, accounts, and deletion', () => {
     expect(results[0].viewer_hash).not.toContain(viewer)
   })
 
+  it('keeps a block after the sender signs in, and holds back the letter and e-gift too (review)', async () => {
+    const ctx = setup({ SIGNIN: 'mock' })
+    const key = deviceKey()
+    const first = await publish(ctx, key)
+    const viewer = 'viewer-key-abcdefghijklmnop'
+    await post(ctx, `/s/${first.shareId}/block`, { viewer })
+    await post(ctx, '/api/account/link', { provider: 'mock', idToken: 'mock:sender-1' }, { key })
+    const second = await publish(ctx, key)
+    const as = { 'x-gfy-viewer': viewer }
+    expect((await ctx.request(`/s/${second.shareId}/share`, { headers: as })).status).toBe(403)
+    // A new device on the same account is covered once a block is made after the link.
+    await post(ctx, `/s/${second.shareId}/block`, { viewer })
+    const tablet = deviceKey()
+    await post(ctx, '/api/account/link', { provider: 'mock', idToken: 'mock:sender-1' }, { key: tablet })
+    const third = await publish(ctx, tablet)
+    expect((await ctx.request(`/s/${third.shareId}/share`, { headers: as })).status).toBe(403)
+    await post(ctx, `/s/${third.shareId}/events`, { type: 'goal_reached' })
+    expect((await ctx.request(`/s/${third.shareId}/reveal`, { headers: as })).status).toBe(403)
+    expect((await post(ctx, `/s/${third.shareId}/unlock`, { passphrase: 'x' }, { headers: as })).status).toBe(403)
+    expect((await ctx.request(`/s/${third.shareId}/reveal`)).status).toBe(200)
+  })
+
   it('links two devices with one sign-in, then deletes the account with every gift, photo, and key', async () => {
     const ctx = setup({ SIGNIN: 'mock' })
     const phone = deviceKey()
@@ -423,6 +458,10 @@ describe('F3-07 analytics and admin', () => {
     expect(all.find((e) => e.name === 'create_started')?.props).toBe('{"template":"course-02"}')
     expect(all.find((e) => e.name === 'gift_published')?.props).toBe('{"tier":"standard","template":"course-03","difficulty":"easy","coins":2}')
     expect(all.filter((e) => e.name === 'gift_opened')).toHaveLength(1)
+    // Each device can add at most 60 client events an hour.
+    for (let i = 0; i < 65; i += 1) expect((await post(ctx, '/api/analytics', { name: 'preview_opened' }, { key })).status).toBe(204)
+    const counted = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM analytics_events WHERE name IN ('create_started', 'preview_opened')").first<{ n: number }>()
+    expect(counted?.n).toBe(60)
     const dump = JSON.stringify(all)
     for (const secret of ['彩', '健太', shareId, 'giftee', 'p-1']) expect(dump).not.toContain(secret)
   })

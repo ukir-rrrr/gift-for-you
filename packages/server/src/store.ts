@@ -51,10 +51,10 @@ export async function hideGift(db: D1Database, giftId: string, reason: string, n
   return result.meta.changes === 1
 }
 
-/** The sender behind a gift for blocking: their account when signed in, else the device. */
-export async function senderOf(db: D1Database, gift: GiftRow): Promise<string> {
+/** Keys a block on this gift's sender is stored and matched under: the device, plus the account when signed in. */
+export async function senderKeys(db: D1Database, gift: GiftRow): Promise<string[]> {
   const device = await db.prepare('SELECT account_id FROM devices WHERE id = ?').bind(gift.device_id).first<{ account_id: string | null }>()
-  return device?.account_id ? `a:${device.account_id}` : `d:${gift.device_id}`
+  return device?.account_id ? [`d:${gift.device_id}`, `a:${device.account_id}`] : [`d:${gift.device_id}`]
 }
 
 export async function photosOf(db: D1Database, giftId: string): Promise<PhotoRow[]> {
