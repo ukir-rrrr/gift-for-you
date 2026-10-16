@@ -110,12 +110,14 @@ export async function flushQueue(): Promise<number> {
   if (isCrawler()) return 0
   const queue = readQueue()
   if (queue.length === 0) return 0
-  const left: Queued[] = []
+  const sent: Queued[] = []
   for (const entry of queue) {
-    if (!(await send(entry.id, entry.type))) left.push(entry)
+    if (await send(entry.id, entry.type)) sent.push(entry)
   }
-  writeQueue(left)
-  return queue.length - left.length
+  // Re-read so beacons queued while these were in flight are kept; drop only what went out.
+  const isSent = (entry: Queued) => sent.some((done) => done.id === entry.id && done.type === entry.type)
+  if (sent.length > 0) writeQueue(readQueue().filter((entry) => !isSent(entry)))
+  return sent.length
 }
 
 export async function fetchReveal(id: string): Promise<Reveal> {

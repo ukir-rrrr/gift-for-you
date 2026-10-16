@@ -56,6 +56,24 @@ describe('beacons', () => {
     expect(readQueue()).toEqual([])
   })
 
+  it('keeps a beacon queued while a flush is in flight', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+    await postEvent('race', 'opened')
+    let release: (res: Response) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        if (JSON.parse(String(init.body)).type === 'opened') return new Promise<Response>((r) => (release = r))
+        throw new Error(`offline ${url}`)
+      }),
+    )
+    const flushing = flushQueue()
+    expect(await postEvent('race', 'goal_reached')).toBe('queued')
+    release(new Response(null, { status: 204 }))
+    expect(await flushing).toBe(1)
+    expect(readQueue()).toEqual([{ id: 'race', type: 'goal_reached' }])
+  })
+
   it('keeps going when storage throws', async () => {
     vi.stubGlobal('localStorage', throwingStorage())
     vi.stubGlobal('sessionStorage', throwingStorage())
