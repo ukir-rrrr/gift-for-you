@@ -23,7 +23,7 @@
   // Deployed defaults fail closed: no provider is configured, so publishing answers 503 until real
   // ones exist. Local runs switch the mocks on with --var (see package.json "dev" and "e2e:serve").
   "vars": {
-    "PUBLIC_ORIGIN": "https://gift-for-you.invalid",
+    "PUBLIC_ORIGIN": "",
     "MODERATION": "none",
     "PURCHASE": "none",
     "NOTIFIER": "none"

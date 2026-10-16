@@ -84,7 +84,7 @@ These need accounts, keys, money, or devices, and are left as interfaces or note
 - Moderation: `Moderator` has only the mock. A hosted image/text safety API (and its key as a Worker secret) is needed before launch.
 - Purchases: `Store` (app) and `PurchaseVerifier` (server) have only the sandbox mock. StoreKit / Play Billing, likely through RevenueCat, plus server receipt verification. Price is not decided.
 - Push: needs an EAS project id in `app.json` (`extra.eas.projectId`) and APNs/FCM credentials, plus a `Notifier` that calls Expo's push API (or APNs/FCM directly). Until then the app reports "unconfigured" and the history screen shows opened/goal.
-- Deploy: real D1 id, R2 bucket, domain, `PUBLIC_ORIGIN`, `CORS_ORIGINS` (drop the localhost entries), `MOCK_INSPECT` off. Not deployed.
+- Deploy: real D1 id, R2 bucket, domain, `PUBLIC_ORIGIN` (empty by default; publishing answers 503 until it is set), `CORS_ORIGINS` (drop the localhost entries), `MOCK_INSPECT` off. Not deployed.
 - Native builds: only the web target ran here. The WebView preview, image picker, SecureStore, view-shot, and share sheet have not run on an iOS or Android device or in Expo Go.
 - The e-gift allowlist is still the constant in `@gfy/schema`; an operator-managed list is open from Phase 1.
 - The reveal gate is per gift (`goal_at`), as in Phase 1: after the recipient reaches the goal once, anyone with the link can read the letter. The passphrase protects the e-gift itself.

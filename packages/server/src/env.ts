@@ -3,7 +3,7 @@ export type Env = {
   PHOTOS: R2Bucket
   /** The player bundle (Workers static assets). */
   ASSETS?: Fetcher
-  /** Origin the share and revoke links point at, e.g. https://gift.example. */
+  /** Origin the share and revoke links point at, e.g. https://gift.example. Empty: publishing answers 503. */
   PUBLIC_ORIGIN: string
   /** Comma-separated origins allowed to call /api from a browser (the creator's web build). */
   CORS_ORIGINS?: string

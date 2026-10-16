@@ -34,6 +34,13 @@ const SHARE_ID = /^[0-9A-Za-z]{10}$/
 
 export type AppOptions = { now?: () => number }
 
+/** Share and revoke links point here. Unset means links would lead nowhere, so publishing fails closed. */
+function publicOrigin(env: Env): string {
+  const origin = (env.PUBLIC_ORIGIN ?? '').replace(/\/$/, '')
+  if (!/^https?:\/\/[^/]+$/.test(origin)) throw new ServiceConfigError('PUBLIC_ORIGIN is not set')
+  return origin
+}
+
 const json = (c: Ctx, status: number, body: unknown) => c.json(body as object, status as 200)
 const fail = (c: Ctx, status: number, error: string, extra: Record<string, unknown> = {}) => json(c, status, { error, ...extra })
 
@@ -221,7 +228,7 @@ export function createApp(options: AppOptions = {}) {
     )
       .bind(c.get('deviceId'))
       .all<GiftRow>()
-    const origin = c.env.PUBLIC_ORIGIN
+    const origin = publicOrigin(c.env)
     return json(c, 200, {
       gifts: results.map((gift) => {
         const status = gift.status === 'published' && (gift.expires_at ?? 0) <= now ? 'expired' : gift.status
@@ -327,6 +334,8 @@ export function createApp(options: AppOptions = {}) {
   })
 
   app.post('/api/gifts/:giftId/publish', async (c) => {
+    // Checked before anything changes, so a misconfigured deploy never half-publishes.
+    const origin = publicOrigin(c.env)
     const gift = await ownedGift(c)
     if (!gift) return fail(c, 404, 'not_found')
     if (gift.status !== 'draft') return fail(c, 409, 'not_draft')
@@ -357,7 +366,6 @@ export function createApp(options: AppOptions = {}) {
         .bind(shareId, JSON.stringify(published), revokeHash, now, expiresAt, gift.id, shareId)
         .run()
       if (result.meta.changes === 1) {
-        const origin = c.env.PUBLIC_ORIGIN
         return json(c, 201, {
           shareId,
           url: `${origin}/g/${shareId}`,
@@ -459,16 +467,17 @@ export function createApp(options: AppOptions = {}) {
 
   app.post('/r/:shareId', async (c) => {
     const shareId = c.req.param('shareId')
-    // Malformed ids never reach the counter, so random paths cannot grow the attempts table.
-    if (!SHARE_ID.test(shareId)) return c.html(revokePage({ state: 'wrong' }), 403, revokeHeaders())
+    // Only a published gift has a revoke code to guess, so only its guesses are counted; other ids
+    // (malformed, unknown, already ended) never add rows to the attempts table.
+    const gift = SHARE_ID.test(shareId) ? await giftByShareId(c.env.DB, shareId) : null
+    if (!gift || gift.status !== 'published' || !gift.revoke_hash) return c.html(revokePage({ state: 'wrong' }), 403, revokeHeaders())
     const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>)
     const code = typeof form.code === 'string' ? form.code : ''
     const now = c.get('services').now()
     const allowed = await takeAttempt(c.env.DB, `revoke:${shareId}`, REVOKE_TRIES.max, REVOKE_TRIES.windowMs, now)
     if (!allowed) return c.html(revokePage({ state: 'busy' }), 429, revokeHeaders())
-    const gift = await giftByShareId(c.env.DB, shareId)
     const hash = await sha256Hex(normalizeRevokeCode(code))
-    if (!gift || gift.status !== 'published' || !gift.revoke_hash || !timingSafeEqual(hash, gift.revoke_hash)) {
+    if (!timingSafeEqual(hash, gift.revoke_hash)) {
       return c.html(revokePage({ state: 'wrong' }), 403, revokeHeaders())
     }
     await endGift(c.env.DB, c.env.PHOTOS, gift, 'revoked', now)

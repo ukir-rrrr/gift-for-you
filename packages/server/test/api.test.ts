@@ -397,6 +397,18 @@ describe('revoke and expiry', () => {
 })
 
 describe('config and cors', () => {
+  it('refuses to publish without a public origin for the links', async () => {
+    const ctx = setup({ PUBLIC_ORIGIN: '' })
+    const key = deviceKey()
+    const giftId = await draft(ctx, key)
+    await upload(ctx, key, giftId, 'p-1')
+    await putContent(ctx, key, giftId, { share: share(['p-1']), reveal: reveal() })
+    await purchase(ctx, key, giftId)
+    expect((await ctx.request(`/api/gifts/${giftId}/publish`, { method: 'POST', key })).status).toBe(503)
+    ctx.env.PUBLIC_ORIGIN = 'https://gift.example'
+    expect((await ctx.request(`/api/gifts/${giftId}/publish`, { method: 'POST', key })).status).toBe(201)
+  })
+
   it('fails closed only where a missing provider is needed', async () => {
     const ctx = setup()
     const key = deviceKey()
@@ -412,9 +424,9 @@ describe('config and cors', () => {
     expect(bought.status).toBe(503)
   })
 
-  it('does not count revoke guesses for malformed share ids', async () => {
+  it('does not count revoke guesses for ids without a published gift', async () => {
     const ctx = setup()
-    for (const id of ['x', 'not-a-share-id', 'ZZZZZZZZZZZ']) {
+    for (const id of ['x', 'not-a-share-id', 'ZZZZZZZZZZZ', 'ZZZZZZZZZZ']) {
       const res = await ctx.request(`/r/${id}`, { method: 'POST', body: new URLSearchParams({ code: 'A' }) })
       expect(res.status).toBe(403)
     }
