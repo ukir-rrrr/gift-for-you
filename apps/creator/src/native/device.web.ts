@@ -22,3 +22,13 @@ export async function deviceKey(): Promise<string> {
   }
   return cached
 }
+
+/** F3-12: account deletion forgets the key; the next call makes a new, unrelated one. */
+export async function resetDeviceKey(): Promise<void> {
+  cached = null
+  try {
+    window.localStorage.removeItem(KEY)
+  } catch {
+    // nothing stored
+  }
+}

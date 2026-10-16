@@ -1,4 +1,7 @@
+import type { TierId } from '@gfy/schema'
 import { ApiError, type Api, type PhotoVerdict, type Published } from './api'
+import { dropPending, savePending, type Store } from './purchases'
+import type { KV } from './storage'
 import type { Draft } from './draft'
 import { cleanJpeg } from './photo'
 import type { GiftContent } from './share'
@@ -14,13 +17,7 @@ export const PUBLISH_STAGES: readonly { id: PublishStage; label: string }[] = [
   { id: 'done', label: '共有' },
 ]
 
-export type PurchaseProof = { platform: string; transactionId: string }
-
-/** Store purchase. Only the sandbox mock exists in this tree (RevenueCat / StoreKit / Play Billing later). */
-export interface Store {
-  readonly label: string
-  purchase(giftId: string): Promise<PurchaseProof>
-}
+export type { PurchaseProof, Store } from './purchases'
 
 export type FlowDeps = {
   api: Api
@@ -82,15 +79,31 @@ export async function uploadAndModerate(
   }
 }
 
+export type BuyOptions = {
+  tier?: TierId
+  /** Spend a verified purchase that no gift used yet instead of buying again. */
+  credit?: string
+  /** Where a paid transaction waits until the server has taken it (F3-03). */
+  kv?: KV
+}
+
 export async function purchaseAndPublish(
   giftId: string,
   store: Store,
   api: Api,
   onStage: (stage: PublishStage) => void = () => {},
+  options: BuyOptions = {},
 ): Promise<Published> {
   onStage('purchase')
-  const proof = await store.purchase(giftId)
-  await api.purchase(giftId, proof)
+  if (options.credit) {
+    await api.purchase(giftId, { platform: 'credit', transactionId: options.credit })
+  } else {
+    const proof = await store.purchase(giftId, options.tier)
+    // Paid from here on: keep the proof until the server has it, so a crash cannot lose it.
+    if (options.kv) await savePending(options.kv, { giftId, proof, at: Date.now() })
+    await api.purchase(giftId, proof)
+    if (options.kv) await dropPending(options.kv, proof.transactionId)
+  }
   onStage('issue')
   const published = await api.publish(giftId)
   onStage('done')

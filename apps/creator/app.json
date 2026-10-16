@@ -11,7 +11,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "思い出コインに使う写真を選びます。写真は端末で縮小し、位置情報を消してから送ります。"
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "app.giftforyou.creator"
@@ -30,7 +31,8 @@
           "cameraPermission": false
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": false

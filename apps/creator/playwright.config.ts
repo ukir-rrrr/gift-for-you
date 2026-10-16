@@ -25,7 +25,7 @@ export default defineConfig({
       url: 'http://127.0.0.1:8081/',
       reuseExistingServer: false,
       timeout: 600000,
-      env: { EXPO_PUBLIC_PUSH_MOCK: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', CI: '1' },
+      env: { EXPO_PUBLIC_PUSH_MOCK: '1', EXPO_PUBLIC_SIGNIN_MOCK: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', CI: '1' },
     },
   ],
 })

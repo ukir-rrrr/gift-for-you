@@ -29,6 +29,7 @@ export default function RootLayout() {
           <Stack.Screen name="create/publish" options={{ title: '公開' }} />
           <Stack.Screen name="gift/[giftId]" options={{ title: 'ギフト' }} />
           <Stack.Screen name="history" options={{ title: '作成履歴' }} />
+          <Stack.Screen name="account" options={{ title: 'アカウントとデータ' }} />
         </Stack>
       </AppProvider>
     </SafeAreaProvider>

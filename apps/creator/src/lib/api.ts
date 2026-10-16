@@ -3,11 +3,14 @@ import type { GiftContent } from './share'
 
 export type PhotoVerdict = { ref: string; status: 'approved' | 'rejected'; reason?: string }
 
-export type Published = { shareId: string; url: string; expiresAt: string; revokeCode: string; revokeUrl: string }
+export type Published = { shareId: string; url: string; expiresAt: string; revokeCode: string; revokeUrl: string; tier?: string }
+
+/** A verified purchase no gift has used yet. */
+export type Credit = { transactionId: string; productId: string; tier: string | null }
 
 export type RemoteGift = {
   giftId: string
-  status: 'published' | 'revoked' | 'expired'
+  status: 'published' | 'revoked' | 'expired' | 'hidden'
   shareId: string | null
   url: string | null
   toName: string | null
@@ -18,6 +21,8 @@ export type RemoteGift = {
   goalAt: number | null
   openedCount: number
   goalCount: number
+  tier?: string | null
+  thanks?: string | null
 }
 
 export class ApiError extends Error {
@@ -78,8 +83,48 @@ export class Api {
     return this.call('PUT', `/api/gifts/${encodeURIComponent(giftId)}/content`, JSON.stringify(content), 'application/json')
   }
 
-  purchase(giftId: string, proof: { platform: string; transactionId: string }): Promise<{ ok: true }> {
+  purchase(giftId: string, proof: { platform: string; transactionId: string; productId?: string }): Promise<{ ok: true; tier?: string }> {
     return this.call('POST', `/api/gifts/${encodeURIComponent(giftId)}/purchase`, JSON.stringify(proof), 'application/json')
+  }
+
+  /** Hands a store transaction to the server without a gift; it becomes a credit. */
+  syncPurchase(proof: { platform: string; transactionId: string; productId?: string }): Promise<{ transactionId: string; tier: string | null; claimed: boolean }> {
+    return this.call('POST', '/api/purchases', JSON.stringify(proof), 'application/json')
+  }
+
+  async unclaimedPurchases(): Promise<Credit[]> {
+    return (await this.call<{ purchases: Credit[] }>('GET', '/api/purchases/unclaimed')).purchases
+  }
+
+  async account(): Promise<{ linked: string[] }> {
+    return this.call('GET', '/api/account')
+  }
+
+  linkAccount(provider: string, idToken: string): Promise<{ linked: true; provider: string }> {
+    return this.call('POST', '/api/account/link', JSON.stringify({ provider, idToken }), 'application/json')
+  }
+
+  async deleteAccount(): Promise<void> {
+    await this.call('DELETE', '/api/account')
+  }
+
+  /** Funnel events. Never throws and never blocks the flow. */
+  async track(name: 'create_started' | 'preview_opened' | 'purchase_started' | 'purchase_cancelled', props: Record<string, string | number> = {}): Promise<void> {
+    try {
+      await this.call('POST', '/api/analytics', JSON.stringify({ name, props }), 'application/json')
+    } catch {
+      // analytics never gets in the way
+    }
+  }
+
+  async egiftDomains(): Promise<string[]> {
+    try {
+      const res = await this.fetchImpl(`${this.origin}/s/egift-domains`)
+      const body = (await res.json()) as { domains?: unknown }
+      return Array.isArray(body.domains) ? body.domains.filter((d): d is string => typeof d === 'string') : []
+    } catch {
+      return []
+    }
   }
 
   publish(giftId: string): Promise<Published> {
@@ -115,6 +160,14 @@ export function describeError(error: unknown): string {
       return '今日はこれ以上作れません。あした試してください'
     case 'purchase_invalid':
       return '購入を確認できませんでした'
+    case 'purchase_used':
+      return 'この購入はもう使われています'
+    case 'purchase_unavailable':
+      return '購入の確認が混み合っています。少し待ってからもう一度どうぞ（二重に課金されることはありません）'
+    case 'moderation_unavailable':
+      return '写真のチェックが混み合っています。少し待ってからもう一度どうぞ'
+    case 'signin_invalid':
+      return 'サインインを確認できませんでした'
     case 'too_large':
     case 'too_many_pixels':
     case 'not_jpeg':
