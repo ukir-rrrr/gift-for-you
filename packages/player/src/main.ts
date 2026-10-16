@@ -31,6 +31,9 @@ function must<T extends HTMLElement>(id: string): T {
   return node as T
 }
 
+const POPUP_SECONDS = 2
+const REC_OPEN_AFTER = 1.2
+
 function localStore(): Storage | null {
   try {
     return window.localStorage
@@ -66,14 +69,16 @@ function boot(share: ShareJson, id: string) {
   )
   const music = new Music(settings.muted)
   let walkFrames: 6 | 8 = flags.walk ?? 6
-  let easy = flags.easy || flags.e2e || share.course.assist.easyModeDefault
+  // Recording mode: no pad or debug chrome, a watermark, no e-gift, and the hero walks on its own.
+  const rec = flags.rec || share.options?.recordingModeDefault === true
+  let easy = flags.easy || flags.e2e || rec || share.course.assist.easyModeDefault
   let reduceFlash = settings.reduceFlash
   let lastCue: CueView | null = null
   let typedCount = 0
-  const rec = flags.rec || share.options?.recordingModeDefault === true
   let session: SessionPhase = { kind: 'title' }
   let goalSent = false
   let beatFor = 0
+  let promptFor = 0
   let popupId = ''
   let popupLeft = 0
   let reveal: Reveal | null = null
@@ -195,6 +200,10 @@ function boot(share: ShareJson, id: string) {
 
   function showMemory(coin: RuntimeCoin) {
     memory.hidden = false
+    // Restart the pop animation for back-to-back coins.
+    memory.classList.remove('pop')
+    void memory.offsetWidth
+    memory.classList.add('pop')
     message.textContent = sanitizeDisplay(coin.message)
     photo.alt = ''
     photo.dataset.fallback = '0'
@@ -258,7 +267,7 @@ function boot(share: ShareJson, id: string) {
       popupId = ''
     } else if (current !== popupId) {
       popupId = current
-      popupLeft = 1.5
+      popupLeft = POPUP_SECONDS
       const coin = coinById(course, current)
       if (coin) showMemory(coin)
     } else {
@@ -271,8 +280,10 @@ function boot(share: ShareJson, id: string) {
     const prev = session
     const beatBefore = revealBeat(prev)
     if (beatBefore && beatBefore !== 'prompt') beatFor += dt
-    const opened = edge.open
+    // In recording mode nobody needs to tap; the gift opens after a short beat at the pedestal.
+    const opened = edge.open || (rec && beatBefore === 'prompt' && (promptFor += dt) > REC_OPEN_AFTER)
     edge.open = false
+    if (beatBefore !== 'prompt') promptFor = 0
     session = fold(prev, { atGoal: snap.atGoal, assist: snap.assist }, opened, beatFor)
     if (revealBeat(session) !== beatBefore) {
       beatFor = 0

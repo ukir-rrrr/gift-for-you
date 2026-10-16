@@ -107,6 +107,17 @@ button:active, a:active {
 
 #memory:not([hidden]) { display: block; }
 
+#memory.pop { animation: memory-pop 0.28s steps(4, end); }
+
+@keyframes memory-pop {
+  from { transform: translateX(-50%) scale(0.4); }
+  to { transform: translateX(-50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #memory.pop { animation: none; }
+}
+
 .memory-frame {
   position: relative;
   width: 104px;
@@ -184,8 +195,8 @@ button:active, a:active {
 
 #watermark {
   position: absolute;
-  left: 8px;
-  top: 46%;
+  right: 6px;
+  top: 6px;
   margin: 0;
   opacity: 0.55;
   font-size: 10px;
