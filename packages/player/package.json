@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "generate-art": "tsx scripts/generate-art.ts",
+    "record-clears": "tsx scripts/record-clears.ts",
     "prebuild": "tsx scripts/generate-art.ts",
     "pretest": "tsx scripts/generate-art.ts",
     "dev": "vite",
