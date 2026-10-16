@@ -37,6 +37,7 @@ import { legalHeaders, legalPage, LEGAL_PATHS, type LegalPage } from './legal'
 import { revokePage } from './revoke-page'
 import { appUserIdFor, createServices, ModerationUnavailable, PurchaseUnavailable, ServiceConfigError, type Services } from './services'
 import {
+  claimPurchase,
   deleteAccount,
   deleteDraft,
   endGift,
@@ -451,17 +452,8 @@ export function createApp(options: AppOptions = {}) {
     if (!tier) return fail(c, 402, 'purchase_invalid', { reason: 'product' })
     // A purchase already on this gift (a retry after a dropped answer) counts as done.
     if (row.gift_id !== null && row.gift_id !== gift.id) return fail(c, 409, 'purchase_used')
-    // Both rows change together, so a failure can never leave a claimed purchase on a gift without it.
-    const [claimed] = await db.batch([
-      db.prepare('UPDATE purchases SET gift_id = ? WHERE transaction_id = ? AND (gift_id IS NULL OR gift_id = ?)').bind(gift.id, row.transaction_id, gift.id),
-      db
-        .prepare(
-          `UPDATE gifts SET purchase_tx = ?, tier = ? WHERE id = ? AND purchase_tx IS NULL
-           AND EXISTS (SELECT 1 FROM purchases WHERE transaction_id = ? AND gift_id = ?)`,
-        )
-        .bind(row.transaction_id, tier.id, gift.id, row.transaction_id, gift.id),
-    ])
-    if (claimed.meta.changes !== 1) return fail(c, 409, 'purchase_used')
+    const claimed = await claimPurchase(db, gift.id, row.transaction_id, tier.id)
+    if (!claimed) return fail(c, 409, 'purchase_used')
     await event(c, 'purchase_verified', { tier: tier.id, sandbox: row.is_sandbox === 1 })
     return json(c, 200, { ok: true, tier: tier.id })
   })

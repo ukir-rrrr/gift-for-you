@@ -203,3 +203,26 @@ export async function deleteAccount(db: D1Database, bucket: R2Bucket, deviceId: 
   }
   return { gifts: count }
 }
+
+/**
+ * F3-03: puts one verified purchase on one gift. Both rows change in one batch, and only while the
+ * gift has no other purchase, so a crash leaves nothing half done and a second transaction racing
+ * the first stays an unspent credit. A retry for the same pair succeeds.
+ */
+export async function claimPurchase(db: D1Database, giftId: string, transactionId: string, tierId: string): Promise<boolean> {
+  const [claimed] = await db.batch([
+    db
+      .prepare(
+        `UPDATE purchases SET gift_id = ?1 WHERE transaction_id = ?2 AND (gift_id IS NULL OR gift_id = ?1)
+         AND EXISTS (SELECT 1 FROM gifts WHERE id = ?1 AND (purchase_tx IS NULL OR purchase_tx = ?2))`,
+      )
+      .bind(giftId, transactionId),
+    db
+      .prepare(
+        `UPDATE gifts SET purchase_tx = ?2, tier = ?3 WHERE id = ?1 AND purchase_tx IS NULL
+         AND EXISTS (SELECT 1 FROM purchases WHERE transaction_id = ?2 AND gift_id = ?1)`,
+      )
+      .bind(giftId, transactionId, tierId),
+  ])
+  return claimed.meta.changes === 1
+}

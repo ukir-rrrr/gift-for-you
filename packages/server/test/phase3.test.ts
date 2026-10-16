@@ -5,7 +5,7 @@ import { ExpoNotifier } from '../src/services/notify'
 import { PurchaseUnavailable, RevenueCatVerifier } from '../src/services/purchase'
 import { OidcSignInVerifier } from '../src/services/signin'
 import { sha256Hex } from '../src/crypto'
-import { sweep } from '../src/store'
+import { claimPurchase, sweep } from '../src/store'
 import { deviceKey, setup } from './harness'
 
 const DAY = 24 * 3600_000
@@ -153,6 +153,22 @@ describe('F3-03 purchases', () => {
     const retry = await post(ctx, `/api/gifts/${giftId}/purchase`, { platform: 'sandbox', transactionId: tx }, { key })
     expect(await retry.json()).toEqual({ ok: true, tier: 'standard' })
     expect((await ctx.request(`/api/gifts/${giftId}/publish`, { method: 'POST', key })).status).toBe(201)
+  })
+
+  it('keeps a second transaction racing for the same gift as a credit (review)', async () => {
+    const ctx = setup()
+    const key = deviceKey()
+    const giftId = await draftWithContent(ctx, key)
+    for (const tx of ['sandbox-race-0001', 'sandbox-race-0002']) await post(ctx, '/api/purchases', { platform: 'sandbox', transactionId: tx }, { key })
+    // Both requests read the gift before either wrote: each goes on to claim.
+    expect(await claimPurchase(ctx.env.DB, giftId, 'sandbox:sandbox-race-0001', 'standard')).toBe(true)
+    expect(await claimPurchase(ctx.env.DB, giftId, 'sandbox:sandbox-race-0002', 'standard')).toBe(false)
+    // A retry of the winner still succeeds.
+    expect(await claimPurchase(ctx.env.DB, giftId, 'sandbox:sandbox-race-0001', 'standard')).toBe(true)
+    const gift = await ctx.env.DB.prepare('SELECT purchase_tx FROM gifts WHERE id = ?').bind(giftId).first()
+    expect(gift).toEqual({ purchase_tx: 'sandbox:sandbox-race-0001' })
+    const unclaimed = (await (await ctx.request('/api/purchases/unclaimed', { key })).json()) as { purchases: { transactionId: string }[] }
+    expect(unclaimed.purchases.map((p) => p.transactionId)).toEqual(['sandbox:sandbox-race-0002'])
   })
 
   it('answers 503 for the webhook until its secret is set', async () => {
