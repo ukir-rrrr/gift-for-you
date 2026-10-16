@@ -142,7 +142,7 @@ describe('F3-03 purchases', () => {
     expect((await post(ctx, '/api/purchases', { platform: 'sandbox', transactionId: 'sandbox:sandbox-orphan-0001' }, { key: deviceKey() })).status).toBe(409)
   })
 
-  it('finishes a claim that stopped half way when the app retries (review: atomic claim)', async () => {
+  it('finishes a claim that stopped half way when the app retries', async () => {
     const ctx = setup()
     const key = deviceKey()
     const giftId = await draftWithContent(ctx, key)
@@ -155,7 +155,7 @@ describe('F3-03 purchases', () => {
     expect((await ctx.request(`/api/gifts/${giftId}/publish`, { method: 'POST', key })).status).toBe(201)
   })
 
-  it('keeps a second transaction racing for the same gift as a credit (review)', async () => {
+  it('keeps a second transaction racing for the same gift as a credit', async () => {
     const ctx = setup()
     const key = deviceKey()
     const giftId = await draftWithContent(ctx, key)
@@ -381,7 +381,7 @@ describe('F3-12 UGC, accounts, and deletion', () => {
     expect(results[0].viewer_hash).not.toContain(viewer)
   })
 
-  it('keeps a block after the sender signs in, and holds back the letter and e-gift too (review)', async () => {
+  it('keeps a block after the sender signs in, and holds back the letter and e-gift too', async () => {
     const ctx = setup({ SIGNIN: 'mock' })
     const key = deviceKey()
     const first = await publish(ctx, key)
