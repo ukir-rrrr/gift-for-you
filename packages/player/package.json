@@ -1,0 +1,32 @@
+{
+  "name": "@gfy/player",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-art": "tsx scripts/generate-art.ts",
+    "record-clears": "tsx scripts/record-clears.ts",
+    "prebuild": "tsx scripts/generate-art.ts",
+    "pretest": "tsx scripts/generate-art.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@gfy/catalog": "workspace:*",
+    "@gfy/schema": "workspace:*",
+    "phaser": "^3.88.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^22.20.5",
+    "pngjs": "^7.0.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "vitest": "^3.2.4"
+  }
+}

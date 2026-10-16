@@ -1,0 +1,25 @@
+{
+  "name": "gift-for-you",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter \"./packages/*\" build",
+    "test": "pnpm -r --filter \"./packages/*\" test",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r --filter \"./packages/*\" typecheck",
+    "e2e": "pnpm --filter @gfy/player e2e",
+    "generate-art": "pnpm --filter @gfy/player generate-art"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2"
+  }
+}
