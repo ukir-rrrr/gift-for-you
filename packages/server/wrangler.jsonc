@@ -1,4 +1,4 @@
-// Local development config. Production needs real ids, a domain, and non-mock providers (docs/phase2.md).
+// Production still needs real D1/R2 ids, a domain, and real providers (docs/phase2.md).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "gift-for-you",
@@ -20,13 +20,13 @@
   ],
   "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "gift-for-you-photos" }],
   "triggers": { "crons": ["17 * * * *"] },
+  // Deployed defaults fail closed: no provider is configured, so publishing answers 503 until real
+  // ones exist. Local runs switch the mocks on with --var (see package.json "dev" and "e2e:serve").
   "vars": {
-    "PUBLIC_ORIGIN": "http://127.0.0.1:8787",
-    "CORS_ORIGINS": "http://127.0.0.1:8081,http://localhost:8081",
-    "MODERATION": "mock",
-    "PURCHASE": "sandbox-mock",
-    "NOTIFIER": "mock",
-    "MOCK_INSPECT": "1"
+    "PUBLIC_ORIGIN": "https://gift-for-you.invalid",
+    "MODERATION": "none",
+    "PURCHASE": "none",
+    "NOTIFIER": "none"
   },
   "observability": { "enabled": true }
 }

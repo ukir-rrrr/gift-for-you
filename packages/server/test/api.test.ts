@@ -397,9 +397,28 @@ describe('revoke and expiry', () => {
 })
 
 describe('config and cors', () => {
-  it('refuses to run with a provider that is not implemented', async () => {
-    const ctx = setup({ MODERATION: 'hosted' })
-    expect((await ctx.request('/api/health')).status).toBe(503)
+  it('fails closed only where a missing provider is needed', async () => {
+    const ctx = setup()
+    const key = deviceKey()
+    const { published } = await publishGift(ctx, key)
+    // Deployed defaults name no provider.
+    ctx.env.MODERATION = 'none'
+    ctx.env.PURCHASE = 'none'
+    expect((await ctx.request('/api/health')).status).toBe(200)
+    expect((await ctx.request(`/s/${published.shareId}/share`)).status).toBe(200)
+    const giftId = await draft(ctx, key)
+    expect((await upload(ctx, key, giftId, 'p-1')).status).toBe(503)
+    const bought = await ctx.request(`/api/gifts/${giftId}/purchase`, { method: 'POST', key, body: JSON.stringify({ platform: 'sandbox', transactionId: 'sandbox-12345678' }) })
+    expect(bought.status).toBe(503)
+  })
+
+  it('does not count revoke guesses for malformed share ids', async () => {
+    const ctx = setup()
+    for (const id of ['x', 'not-a-share-id', 'ZZZZZZZZZZZ']) {
+      const res = await ctx.request(`/r/${id}`, { method: 'POST', body: new URLSearchParams({ code: 'A' }) })
+      expect(res.status).toBe(403)
+    }
+    expect(await ctx.env.DB.prepare('SELECT COUNT(*) AS n FROM attempts').first()).toEqual({ n: 0 })
   })
 
   it('answers preflight only for the creator web origin', async () => {

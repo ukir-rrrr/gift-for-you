@@ -59,7 +59,7 @@ All `/api/*` routes need `Authorization: Device <key>`.
 
 ## Providers
 
-`wrangler.jsonc` vars pick providers. Only mocks exist; any other value makes the Worker answer 503 rather than fall back.
+Vars pick providers. Only mocks exist. The deployed defaults in `wrangler.jsonc` are `none`, so a plain `wrangler deploy` serves published gifts but answers 503 to anything that needs moderation, purchase, or push, instead of falling back to a mock. `pnpm --filter @gfy/server dev` and `e2e:serve` turn the mocks, `MOCK_INSPECT`, and the localhost origins on with `wrangler dev --var`.
 
 | var | value here | mock behavior |
 | --- | --- | --- |
@@ -89,5 +89,7 @@ These need accounts, keys, money, or devices, and are left as interfaces or note
 - The e-gift allowlist is still the constant in `@gfy/schema`; an operator-managed list is open from Phase 1.
 - The reveal gate is per gift (`goal_at`), as in Phase 1: after the recipient reaches the goal once, anyone with the link can read the letter. The passphrase protects the e-gift itself.
 - No per-IP rate limit yet beyond the per-device draft cap and per-gift attempt windows; Workers rate-limiting bindings would cover upload abuse.
+- `POST /s/{shareId}/events` has no authentication or rate limit, as in Phase 1: anyone with the link can raise `opened_count` and `goal_count`. The sender's history shows opened/goal (first time only), so the counts are indicative until a limit (per IP and gift) lands. The push still goes out only once per type.
+- The web build keeps the device key in `localStorage` (native builds use SecureStore). Any XSS on the creator's web origin could read it and act as that device (list, revoke, publish its drafts). The web build is for development and e2e; shipping it needs a strict CSP and, ideally, a non-extractable key.
 - A lost device key cannot be recovered; the revoke code is the fallback for revoking.
 - Terms, privacy policy, and store listings are not written.

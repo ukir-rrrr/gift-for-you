@@ -12,15 +12,31 @@ export type Services = {
 
 export class ServiceConfigError extends Error {}
 
-/** Picks providers from vars. Unknown names fail closed instead of silently using a mock. */
+function unavailable(kind: string, name: string): never {
+  throw new ServiceConfigError(`${kind} provider "${name}" is not available`)
+}
+
+/**
+ * Picks providers from vars. Unknown names fail closed instead of silently using a mock, and only
+ * when a request actually needs that provider, so reading published gifts keeps working.
+ */
 export function createServices(env: Env, now: () => number = Date.now): Services {
-  if (env.MODERATION !== 'mock') throw new ServiceConfigError(`moderation provider "${env.MODERATION}" is not available`)
-  if (env.PURCHASE !== 'sandbox-mock') throw new ServiceConfigError(`purchase provider "${env.PURCHASE}" is not available`)
-  if (env.NOTIFIER !== 'mock') throw new ServiceConfigError(`notifier "${env.NOTIFIER}" is not available`)
+  let moderator: Moderator | undefined
+  let purchases: PurchaseVerifier | undefined
+  let notifier: Notifier | undefined
   return {
-    moderator: new MockModerator(),
-    purchases: new SandboxMockVerifier(),
-    notifier: new MockNotifier(env.DB, now),
+    get moderator() {
+      moderator ??= env.MODERATION === 'mock' ? new MockModerator() : unavailable('moderation', env.MODERATION)
+      return moderator
+    },
+    get purchases() {
+      purchases ??= env.PURCHASE === 'sandbox-mock' ? new SandboxMockVerifier() : unavailable('purchase', env.PURCHASE)
+      return purchases
+    },
+    get notifier() {
+      notifier ??= env.NOTIFIER === 'mock' ? new MockNotifier(env.DB, now) : unavailable('notifier', env.NOTIFIER)
+      return notifier
+    },
     now,
   }
 }

@@ -24,7 +24,24 @@ describe('stripJpegMetadata', () => {
     expect(decode(out)).not.toContain('taken at home')
     expect(decode(out)).toContain('JFIF')
     expect(readJpegInfo(out)).toEqual({ width: 1080, height: 720 })
-    expect([...out.slice(-7)]).toEqual([0x12, 0x34, 0xff, 0x00, 0x56, 0xff, 0xd9])
+    expect([...out.slice(-10)]).toEqual([0x12, 0x34, 0xff, 0x00, 0x56, 0xff, 0xd0, 0x01, 0xff, 0xd9])
+  })
+
+  it('drops data appended after EOI', () => {
+    const input = makeTestJpeg({ trailing: 'GPSLatitude=35.6812' })
+    expect(hasJpegMetadata(input)).toBe(true)
+    const out = stripJpegMetadata(input)
+    expect(decode(out)).not.toContain('GPS')
+    expect([...out.slice(-2)]).toEqual([0xff, 0xd9])
+    expect(hasJpegMetadata(out)).toBe(false)
+  })
+
+  it('walks every scan and drops comments between them', () => {
+    const input = makeTestJpeg({ secondScanComment: 'GPS between scans' })
+    expect(hasJpegMetadata(input)).toBe(true)
+    const out = stripJpegMetadata(input)
+    expect(decode(out)).not.toContain('GPS')
+    expect([...out.slice(-4)]).toEqual([0x77, 0x88, 0xff, 0xd9])
   })
 
   it('leaves a clean file byte for byte', () => {
@@ -35,6 +52,9 @@ describe('stripJpegMetadata', () => {
   it('rejects files that are not jpeg or are truncated', () => {
     expect(() => stripJpegMetadata(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0]))).toThrow()
     expect(() => stripJpegMetadata(makeTestJpeg().subarray(0, 30))).toThrow()
+    // Missing EOI.
+    const whole = makeTestJpeg()
+    expect(() => stripJpegMetadata(whole.subarray(0, whole.length - 2))).toThrow()
   })
 })
 

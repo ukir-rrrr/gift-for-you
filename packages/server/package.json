@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm run db:local && wrangler dev --port 8787 --ip 127.0.0.1",
+    "dev": "pnpm run db:local && wrangler dev --port 8787 --ip 127.0.0.1 --var MODERATION:mock --var PURCHASE:sandbox-mock --var NOTIFIER:mock --var MOCK_INSPECT:1 --var PUBLIC_ORIGIN:http://127.0.0.1:8787 --var CORS_ORIGINS:http://127.0.0.1:8081,http://localhost:8081",
     "db:local": "wrangler d1 migrations apply DB --local",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check:wrangler": "wrangler deploy --dry-run --outdir dist",
     "smoke": "node scripts/smoke.mjs",
-    "e2e:serve": "rm -rf .wrangler/e2e && wrangler d1 migrations apply DB --local --persist-to .wrangler/e2e && wrangler dev --port 8787 --ip 127.0.0.1 --persist-to .wrangler/e2e"
+    "e2e:serve": "rm -rf .wrangler/e2e && wrangler d1 migrations apply DB --local --persist-to .wrangler/e2e && wrangler dev --port 8787 --ip 127.0.0.1 --persist-to .wrangler/e2e --var MODERATION:mock --var PURCHASE:sandbox-mock --var NOTIFIER:mock --var MOCK_INSPECT:1 --var PUBLIC_ORIGIN:http://127.0.0.1:8787 --var CORS_ORIGINS:http://127.0.0.1:8081,http://localhost:8081"
   },
   "dependencies": {
     "@gfy/catalog": "workspace:*",

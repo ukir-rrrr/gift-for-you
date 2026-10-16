@@ -1,6 +1,8 @@
 /** Builds a minimal baseline JPEG header for tests. Not decodable pixels; enough for the segment walker. */
-export function makeTestJpeg(options: { width?: number; height?: number; exif?: boolean; comment?: string; scan?: number[] } = {}): Uint8Array {
-  const { width = 640, height = 480, exif = false, comment, scan = [0x12, 0x34, 0xff, 0x00, 0x56] } = options
+export function makeTestJpeg(
+  options: { width?: number; height?: number; exif?: boolean; comment?: string; scan?: number[]; secondScanComment?: string; trailing?: string } = {},
+): Uint8Array {
+  const { width = 640, height = 480, exif = false, comment, scan = [0x12, 0x34, 0xff, 0x00, 0x56], secondScanComment, trailing } = options
   const bytes: number[] = [0xff, 0xd8]
   const segment = (marker: number, payload: number[]) => {
     const length = payload.length + 2
@@ -14,6 +16,14 @@ export function makeTestJpeg(options: { width?: number; height?: number; exif?: 
   segment(0xc0, [8, height >> 8, height & 0xff, width >> 8, width & 0xff, 1, 1, 0x11, 0])
   segment(0xc4, [0, ...new Array(16).fill(0)])
   segment(0xda, [1, 1, 0, 0, 63, 0])
-  bytes.push(...scan, 0xff, 0xd9)
+  bytes.push(...scan, 0xff, 0xd0, 0x01)
+  if (secondScanComment !== undefined) {
+    // Progressive files carry more scans; a comment may sit between them.
+    segment(0xfe, text(secondScanComment))
+    segment(0xda, [1, 1, 0, 0, 63, 0])
+    bytes.push(0x77, 0x88)
+  }
+  bytes.push(0xff, 0xd9)
+  if (trailing) bytes.push(...text(trailing))
   return new Uint8Array(bytes)
 }

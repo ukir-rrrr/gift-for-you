@@ -23,10 +23,28 @@ function standalone(marker: number): boolean {
   return marker === SOI || marker === EOI || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)
 }
 
+/** A marker segment, or (marker -1) a run of entropy-coded scan data. */
 type Segment = { marker: number; start: number; end: number }
 
-/** Walks header segments up to and including SOS. Throws on a truncated or malformed header. */
-function segments(bytes: Uint8Array): { list: Segment[]; scan: number } {
+const DATA = -1
+
+/** Index of the next real marker after entropy-coded data starting at `from` (skips FF00 stuffing and RSTn). */
+function scanEnd(bytes: Uint8Array, from: number): number {
+  for (let at = from; at + 1 < bytes.length; at += 1) {
+    if (bytes[at] !== 0xff) continue
+    const next = bytes[at + 1]
+    if (next === 0x00 || next === 0xff || (next >= 0xd0 && next <= 0xd7)) continue
+    return at
+  }
+  throw new Error('truncated')
+}
+
+/**
+ * Walks the whole file up to EOI: header segments, every scan of a progressive file, and any
+ * segment between scans. Throws on a malformed or truncated file. `end` is just past EOI, so
+ * anything appended after the image (where data can hide) is reported, never kept.
+ */
+function segments(bytes: Uint8Array): { list: Segment[]; end: number } {
   if (!isJpeg(bytes)) throw new Error('not a jpeg')
   const list: Segment[] = []
   let at = 2
@@ -37,9 +55,10 @@ function segments(bytes: Uint8Array): { list: Segment[]; scan: number } {
     const marker = bytes[at + 1]
     if (marker === undefined) throw new Error('truncated')
     if (standalone(marker)) {
+      if (marker === SOI) throw new Error('bad marker')
       list.push({ marker, start: at, end: at + 2 })
       at += 2
-      if (marker === EOI) return { list, scan: at }
+      if (marker === EOI) return { list, end: at }
       continue
     }
     if (at + 4 > bytes.length) throw new Error('truncated')
@@ -49,9 +68,13 @@ function segments(bytes: Uint8Array): { list: Segment[]; scan: number } {
     if (end > bytes.length) throw new Error('truncated')
     list.push({ marker, start: at, end })
     at = end
-    if (marker === SOS) return { list, scan: at }
+    if (marker === SOS) {
+      const dataEnd = scanEnd(bytes, at)
+      list.push({ marker: DATA, start: at, end: dataEnd })
+      at = dataEnd
+    }
   }
-  throw new Error('no scan')
+  throw new Error('truncated')
 }
 
 /**
@@ -60,6 +83,7 @@ function segments(bytes: Uint8Array): { list: Segment[]; scan: number } {
  */
 function keepSegment(bytes: Uint8Array, segment: Segment): boolean {
   const { marker, start } = segment
+  if (marker === DATA) return true
   const payload = start + 4
   if (marker === COM) return false
   if (marker === 0xe0) return ascii(bytes, payload, 'JFIF\0') || ascii(bytes, payload, 'JFXX\0')
@@ -70,24 +94,24 @@ function keepSegment(bytes: Uint8Array, segment: Segment): boolean {
 }
 
 export function stripJpegMetadata(bytes: Uint8Array): Uint8Array {
-  const { list, scan } = segments(bytes)
+  const { list } = segments(bytes)
   const kept = list.filter((segment) => keepSegment(bytes, segment))
-  const headerSize = kept.reduce((sum, segment) => sum + (segment.end - segment.start), 0)
-  const out = new Uint8Array(2 + headerSize + (bytes.length - scan))
+  const size = kept.reduce((sum, segment) => sum + (segment.end - segment.start), 0)
+  // Rebuilt from kept pieces only; bytes after EOI are not copied.
+  const out = new Uint8Array(2 + size)
   out.set([0xff, SOI])
   let at = 2
   for (const segment of kept) {
     out.set(bytes.subarray(segment.start, segment.end), at)
     at += segment.end - segment.start
   }
-  out.set(bytes.subarray(scan), at)
   return out
 }
 
-/** True when any segment that can carry Exif, GPS, XMP, IPTC or a comment is present. */
+/** True when any segment that can carry Exif, GPS, XMP, IPTC or a comment is present, or data trails EOI. */
 export function hasJpegMetadata(bytes: Uint8Array): boolean {
-  const { list } = segments(bytes)
-  return list.some((segment) => !keepSegment(bytes, segment))
+  const { list, end } = segments(bytes)
+  return end < bytes.length || list.some((segment) => !keepSegment(bytes, segment))
 }
 
 export function readJpegInfo(bytes: Uint8Array): JpegInfo {

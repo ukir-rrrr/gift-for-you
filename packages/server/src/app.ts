@@ -459,12 +459,14 @@ export function createApp(options: AppOptions = {}) {
 
   app.post('/r/:shareId', async (c) => {
     const shareId = c.req.param('shareId')
+    // Malformed ids never reach the counter, so random paths cannot grow the attempts table.
+    if (!SHARE_ID.test(shareId)) return c.html(revokePage({ state: 'wrong' }), 403, revokeHeaders())
     const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>)
     const code = typeof form.code === 'string' ? form.code : ''
     const now = c.get('services').now()
     const allowed = await takeAttempt(c.env.DB, `revoke:${shareId}`, REVOKE_TRIES.max, REVOKE_TRIES.windowMs, now)
     if (!allowed) return c.html(revokePage({ state: 'busy' }), 429, revokeHeaders())
-    const gift = SHARE_ID.test(shareId) ? await giftByShareId(c.env.DB, shareId) : null
+    const gift = await giftByShareId(c.env.DB, shareId)
     const hash = await sha256Hex(normalizeRevokeCode(code))
     if (!gift || gift.status !== 'published' || !gift.revoke_hash || !timingSafeEqual(hash, gift.revoke_hash)) {
       return c.html(revokePage({ state: 'wrong' }), 403, revokeHeaders())
