@@ -52,7 +52,7 @@ export const shareJsonSchema = z
         z
           .object({
             order: z.number().int().min(1).max(10),
-            photoRef: z.string().min(1).max(80),
+            photoRef: z.string().min(1).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
             message,
           })
           )

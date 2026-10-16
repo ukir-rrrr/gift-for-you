@@ -6,8 +6,16 @@ export type Reveal = RevealJson
 const queueKey = 'gfy-events'
 
 function remember(id: string, type: string) {
-  const raw = localStorage.getItem(queueKey)
-  const queue = raw ? (JSON.parse(raw) as { id: string; type: string }[]) : []
+  let queue: { id: string; type: string }[] = []
+  try {
+    const raw = localStorage.getItem(queueKey)
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown
+      if (Array.isArray(parsed)) queue = parsed
+    }
+  } catch {
+    queue = []
+  }
   queue.push({ id, type })
   localStorage.setItem(queueKey, JSON.stringify(queue))
 }

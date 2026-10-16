@@ -74,6 +74,9 @@ describe('parseShareJson', () => {
     const short = sample()
     ;(short.goal as { egift: { url?: string } }).egift.url = 'https://bit.ly/abc'
     expect(parseShareJson(short, index).ok).toBe(false)
+    expect(
+      parseShareJson(sample({ memoryCoins: [{ order: 1, photoRef: '../secret', message: 'あ' }] }), index).ok,
+    ).toBe(false)
   })
 
   it('strips emoji instead of substituting a box', () => {
