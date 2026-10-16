@@ -34,7 +34,7 @@ export class SandboxMockVerifier implements PurchaseVerifier {
 
   async verify(proof: PurchaseProof, appUserId: string): Promise<PurchaseResult> {
     if (proof.platform !== 'sandbox') return { ok: false, reason: 'platform' }
-    if (!/^sandbox-[A-Za-z0-9-]{8,64}$/.test(proof.transactionId)) return { ok: false, reason: 'receipt' }
+    if (!/^sandbox-[A-Za-z0-9-]{8,64}$/.test(proof.transactionId)) return { ok: false, reason: 'format' }
     const productId = proof.productId ?? 'gfy_gift_standard'
     if (!tierByProduct(productId)) return { ok: false, reason: 'product' }
     return {
@@ -77,7 +77,7 @@ export class RevenueCatVerifier implements PurchaseVerifier {
     if (proof.platform !== 'ios' && proof.platform !== 'android') return { ok: false, reason: 'platform' }
     const productId = proof.productId ?? ''
     if (!tierByProduct(productId)) return { ok: false, reason: 'product' }
-    if (!/^[A-Za-z0-9._:-]{4,200}$/.test(proof.transactionId)) return { ok: false, reason: 'receipt' }
+    if (!/^[A-Za-z0-9._:-]{4,200}$/.test(proof.transactionId)) return { ok: false, reason: 'format' }
     let res: Response
     try {
       res = await this.fetchImpl(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(appUserId)}`, {

@@ -59,7 +59,10 @@ export async function dropPending(kv: KV, transactionId: string): Promise<void> 
 
 
 /** Verification refusals that will not change: anything else (e.g. "receipt") may be RevenueCat lagging. */
-const PERMANENT_REFUSALS = new Set(['refunded', 'product', 'platform', 'sandbox'])
+const PERMANENT_REFUSALS = new Set(['refunded', 'product', 'platform', 'sandbox', 'format'])
+
+/** How long a "receipt" refusal (not listed by RevenueCat) is retried before it counts as final. */
+export const RECEIPT_RETRY_MS = 7 * 24 * 3600_000
 
 /** Offline, rate limited, server trouble, or a refusal that may pass later: keep the record and try again. */
 export function retryable(error: unknown): boolean {
@@ -75,13 +78,15 @@ export function retryable(error: unknown): boolean {
  * transaction this device has not synced yet. Each becomes a credit or lands on its gift.
  * Offline or server trouble leaves the record for the next start.
  */
-export async function settlePurchases(api: Api, kv: KV, store?: Store): Promise<Credit[]> {
+export async function settlePurchases(api: Api, kv: KV, store?: Store, now = Date.now()): Promise<Credit[]> {
   for (const entry of await loadPending(kv)) {
     try {
       await api.purchase(entry.giftId, entry.proof)
       await dropPending(kv, entry.proof.transactionId)
     } catch (error) {
-      if (retryable(error)) continue
+      // A transaction RevenueCat still does not list after a week (refunded, never completed) is final.
+      const stale = error instanceof ApiError && error.detail.reason === 'receipt' && now - entry.at > RECEIPT_RETRY_MS
+      if (retryable(error) && !stale) continue
       // A final answer for this gift (taken by another purchase, published, draft gone, or refused for
       // good). Hand a still-valid payment over as a credit; keep the record unless that also settles.
       try {

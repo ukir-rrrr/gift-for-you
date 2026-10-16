@@ -91,8 +91,10 @@ describe('F3-03 purchase flow in the app', () => {
     await savePending(kv, { giftId: 'g-gone', proof: { platform: 'ios', transactionId: 'b' }, at: 2 })
     await savePending(kv, { giftId: 'g-later', proof: { platform: 'ios', transactionId: 'c' }, at: 3 })
     await savePending(kv, { giftId: 'g-refunded', proof: { platform: 'ios', transactionId: 'r' }, at: 4 })
-    await savePending(kv, { giftId: 'g-lag', proof: { platform: 'ios', transactionId: 'l' }, at: 5 })
+    await savePending(kv, { giftId: 'g-lag', proof: { platform: 'ios', transactionId: 'l' }, at: Date.now() - 3600_000 })
     await savePending(kv, { giftId: 'g-used', proof: { platform: 'ios', transactionId: 'u' }, at: 6 })
+    // Not listed by RevenueCat for more than a week: given up.
+    await savePending(kv, { giftId: 'g-lag-old', proof: { platform: 'ios', transactionId: 'old-lag' }, at: Date.now() - 8 * 24 * 3600_000 })
     const synced: string[] = []
     const { api } = server((method, path, body) => {
       const tx = (body as { transactionId?: string } | undefined)?.transactionId
@@ -102,7 +104,9 @@ describe('F3-03 purchase flow in the app', () => {
       if (path === '/api/gifts/g-refunded/purchase') return { status: 402, body: { error: 'purchase_invalid', reason: 'refunded' } }
       if (method === 'POST' && path === '/api/purchases' && tx === 'r') return { status: 402, body: { error: 'purchase_invalid', reason: 'refunded' } }
       // RevenueCat has not listed the transaction yet: may pass on a later start.
-      if (path === '/api/gifts/g-lag/purchase') return { status: 402, body: { error: 'purchase_invalid', reason: 'receipt' } }
+      if (path === '/api/gifts/g-lag/purchase' || path === '/api/gifts/g-lag-old/purchase') {
+        return { status: 402, body: { error: 'purchase_invalid', reason: 'receipt' } }
+      }
       // The gift took another purchase, and handing this one over as a credit fails while offline-ish.
       if (path === '/api/gifts/g-used/purchase') return { status: 409, body: { error: 'purchase_used' } }
       if (method === 'POST' && path === '/api/purchases' && tx === 'u') return { status: 503, body: { error: 'purchase_unavailable' } }
@@ -126,7 +130,7 @@ describe('F3-03 purchase flow in the app', () => {
     // g-gone became a credit and g-refunded is dropped for good; g-later (503), g-lag (receipt not yet
     // listed), and g-used (its credit sync failed) wait for the next start.
     expect((await loadPending(kv)).map((entry) => entry.giftId)).toEqual(['g-later', 'g-lag', 'g-used'])
-    expect(synced).toEqual(['b', 'old', 'new'])
+    expect(synced).toEqual(['b', 'old-lag', 'old', 'new'])
     // Store transactions are synced once.
     synced.length = 0
     await settlePurchases(api, kv, store)
