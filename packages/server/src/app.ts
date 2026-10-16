@@ -36,9 +36,14 @@ export type AppOptions = { now?: () => number }
 
 /** Share and revoke links point here. Unset means links would lead nowhere, so publishing fails closed. */
 function publicOrigin(env: Env): string {
-  const origin = (env.PUBLIC_ORIGIN ?? '').replace(/\/$/, '')
-  if (!/^https?:\/\/[^/]+$/.test(origin)) throw new ServiceConfigError('PUBLIC_ORIGIN is not set')
+  const origin = configuredOrigin(env)
+  if (!origin) throw new ServiceConfigError('PUBLIC_ORIGIN is not set')
   return origin
+}
+
+function configuredOrigin(env: Env): string | null {
+  const origin = (env.PUBLIC_ORIGIN ?? '').replace(/\/$/, '')
+  return /^https?:\/\/[^/]+$/.test(origin) ? origin : null
 }
 
 const json = (c: Ctx, status: number, body: unknown) => c.json(body as object, status as 200)
@@ -228,7 +233,8 @@ export function createApp(options: AppOptions = {}) {
     )
       .bind(c.get('deviceId'))
       .all<GiftRow>()
-    const origin = publicOrigin(c.env)
+    // Listing never fails on a missing origin; rows just carry no link.
+    const origin = configuredOrigin(c.env)
     return json(c, 200, {
       gifts: results.map((gift) => {
         const status = gift.status === 'published' && (gift.expires_at ?? 0) <= now ? 'expired' : gift.status
@@ -236,7 +242,7 @@ export function createApp(options: AppOptions = {}) {
           giftId: gift.id,
           status,
           shareId: gift.share_id,
-          url: status === 'published' && gift.share_id ? `${origin}/g/${gift.share_id}` : null,
+          url: status === 'published' && gift.share_id && origin ? `${origin}/g/${gift.share_id}` : null,
           toName: gift.to_name,
           createdAt: gift.created_at,
           publishedAt: gift.published_at,
@@ -468,7 +474,8 @@ export function createApp(options: AppOptions = {}) {
   app.post('/r/:shareId', async (c) => {
     const shareId = c.req.param('shareId')
     // Only a published gift has a revoke code to guess, so only its guesses are counted; other ids
-    // (malformed, unknown, already ended) never add rows to the attempts table.
+    // (malformed, unknown, already ended) never add rows to the attempts table. That 429 shows up
+    // only for live ids tells nothing new: GET /s/{id}/share already answers 200 or 404 per id.
     const gift = SHARE_ID.test(shareId) ? await giftByShareId(c.env.DB, shareId) : null
     if (!gift || gift.status !== 'published' || !gift.revoke_hash) return c.html(revokePage({ state: 'wrong' }), 403, revokeHeaders())
     const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>)

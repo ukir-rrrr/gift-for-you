@@ -407,6 +407,11 @@ describe('config and cors', () => {
     expect((await ctx.request(`/api/gifts/${giftId}/publish`, { method: 'POST', key })).status).toBe(503)
     ctx.env.PUBLIC_ORIGIN = 'https://gift.example'
     expect((await ctx.request(`/api/gifts/${giftId}/publish`, { method: 'POST', key })).status).toBe(201)
+    // History still lists without an origin, just without links.
+    ctx.env.PUBLIC_ORIGIN = ''
+    const list = await ctx.request('/api/gifts', { key })
+    expect(list.status).toBe(200)
+    expect(((await list.json()) as { gifts: { url: string | null }[] }).gifts[0].url).toBeNull()
   })
 
   it('fails closed only where a missing provider is needed', async () => {
