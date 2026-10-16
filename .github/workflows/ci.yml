@@ -17,13 +17,28 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: No secrets in the tree
+        run: node scripts/check-secrets.mjs
       - run: pnpm build
+      - name: Generated art matches the committed PNGs
+        run: git diff --exit-code -- packages/player/public
       - run: pnpm test
+      # Every course x difficulty replay tape must come out of the bot exactly as committed (F3-01).
+      - name: Replay tapes are reproducible
+        run: pnpm --filter @gfy/player record-clears && git diff --exit-code -- packages/player/test/tapes
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: packages/player
       - run: pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: player-e2e
+          path: |
+            packages/player/e2e/screenshots
+            packages/player/test-results
+          if-no-files-found: ignore
 
   creator:
     runs-on: ubuntu-latest
@@ -45,7 +60,7 @@ jobs:
         run: pnpm --filter @gfy/server check:wrangler
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/creator
-      - name: Creator web e2e against wrangler dev
+      - name: Creator web and admin e2e against wrangler dev
         run: pnpm e2e:creator
       - uses: actions/upload-artifact@v4
         if: always()

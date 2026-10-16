@@ -1,6 +1,6 @@
 # gift-for-you
 
-Phase 1 browser player (`packages/player`, demo gift `/g/demo`) and the Phase 2 creator app (`apps/creator`) with its gift server (`packages/server`). Phase 2 setup, flow, API, and remaining items: [`docs/phase2.md`](docs/phase2.md).
+Phase 1 browser player (`packages/player`, demo gift `/g/demo`) and the Phase 2 creator app (`apps/creator`) with its gift server (`packages/server`). Phase 2 setup, flow, API, and remaining items: [`docs/phase2.md`](docs/phase2.md). Phase 3 (three courses, twenty items, in-app purchases, moderation, reports, admin, store review, and riku's production checklist): [`docs/phase3.md`](docs/phase3.md).
 
 ```
 pnpm install
@@ -30,6 +30,7 @@ Open `http://127.0.0.1:5173/g/demo`. Walk cycle: `C`, on-screen button, or `?wal
 | `?easy=1` | auto-walk |
 | `?difficulty=easy\|normal\|hard` | obstacle preset |
 | `?walk=6\|8` | walk cycle frames |
+| `?template=course-02` | play the gift on another course (preview, e2e) |
 
 ## Beacons
 
@@ -43,6 +44,7 @@ Ids that are not bundled samples load `/s/{id}/share` from the gift server, with
 
 ```
 pnpm build && pnpm test && pnpm lint && pnpm typecheck && pnpm e2e && pnpm e2e:creator
+node scripts/check-secrets.mjs
 ```
 
 `pnpm test` includes the frozen replay tapes (`packages/player/test/tapes`). If the bundled Playwright Chromium does not match, set `PW_CHROMIUM=/path/to/chromium`.
