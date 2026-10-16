@@ -39,7 +39,8 @@ function headers(c: Ctx) {
   c.header('Cache-Control', 'no-store')
   c.header('X-Robots-Tag', 'noindex, nofollow')
   c.header('X-Frame-Options', 'DENY')
-  c.header('Referrer-Policy', 'no-referrer')
+  // same-origin, not no-referrer: with no-referrer the browser posts forms with Origin: null.
+  c.header('Referrer-Policy', 'same-origin')
   c.header('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
 }
 
@@ -94,7 +95,13 @@ export function adminRoutes() {
     if (c.req.method === 'POST') {
       // Same-origin forms only, on top of SameSite=Strict and the CSRF token.
       const origin = c.req.header('origin')
-      if (origin && origin !== new URL(c.req.url).origin) return c.text('forbidden', 403)
+      let sameHost = true
+      try {
+        sameHost = !origin || new URL(origin).host === (c.req.header('host') ?? new URL(c.req.url).host)
+      } catch {
+        sameHost = false
+      }
+      if (!sameHost) return c.text('forbidden', 403)
     }
     await next()
   })

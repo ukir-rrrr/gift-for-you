@@ -128,6 +128,20 @@ describe('F3-03 purchases', () => {
     expect((await hook({ id: 'ev-4' })).status).toBe(400)
   })
 
+  it('turns an unfinished store transaction into a credit that a later gift spends', async () => {
+    const ctx = setup()
+    const key = deviceKey()
+    const synced = await post(ctx, '/api/purchases', { platform: 'sandbox', transactionId: 'sandbox-orphan-0001', productId: 'gfy_gift_premium' }, { key })
+    expect(await synced.json()).toEqual({ transactionId: 'sandbox:sandbox-orphan-0001', tier: 'premium', claimed: false })
+    const unclaimed = (await (await ctx.request('/api/purchases/unclaimed', { key })).json()) as { purchases: { transactionId: string }[] }
+    expect(unclaimed.purchases.map((p) => p.transactionId)).toEqual(['sandbox:sandbox-orphan-0001'])
+    const giftId = await draftWithContent(ctx, key)
+    const spent = await post(ctx, `/api/gifts/${giftId}/purchase`, { platform: 'credit', transactionId: 'sandbox:sandbox-orphan-0001' }, { key })
+    expect(await spent.json()).toEqual({ ok: true, tier: 'premium' })
+    expect(await (await post(ctx, '/api/purchases', { platform: 'sandbox', transactionId: 'sandbox:sandbox-orphan-0001' }, { key })).json()).toMatchObject({ claimed: true })
+    expect((await post(ctx, '/api/purchases', { platform: 'sandbox', transactionId: 'sandbox:sandbox-orphan-0001' }, { key: deviceKey() })).status).toBe(409)
+  })
+
   it('answers 503 for the webhook until its secret is set', async () => {
     const ctx = setup()
     expect((await post(ctx, '/webhooks/revenuecat', { event: { id: 'x', type: 'TEST' } })).status).toBe(503)

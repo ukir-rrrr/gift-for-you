@@ -191,7 +191,6 @@ export async function deleteAccount(db: D1Database, bucket: R2Bucket, deviceId: 
     await db.batch([
       db.prepare('UPDATE purchases SET app_user_id = NULL WHERE app_user_id = ?').bind(`gfy_${id}`),
       db.prepare('DELETE FROM blocks WHERE sender_id = ?').bind(`d:${id}`),
-      db.prepare('DELETE FROM attempts WHERE key LIKE ?').bind(`%:${id}`),
       db.prepare('DELETE FROM devices WHERE id = ?').bind(id),
     ])
   }

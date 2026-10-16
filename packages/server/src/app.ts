@@ -381,6 +381,36 @@ export function createApp(options: AppOptions = {}) {
     })
   })
 
+  // F3-03: consumables are not restorable, so the app hands over store transactions it has not
+  // seen through (a crash between paying and publishing). Verified ones become credits.
+  app.post('/api/purchases', async (c) => {
+    const body = (await readJson(c, 4096)) as { platform?: unknown; transactionId?: unknown; productId?: unknown } | undefined
+    const transactionId = String(body?.transactionId ?? '')
+    const appUserId = appUserIdFor(c.get('deviceId'))
+    const db = c.env.DB
+    const known = await db.prepare('SELECT * FROM purchases WHERE transaction_id = ?').bind(transactionId).first<PurchaseRow>()
+    if (known) {
+      if (known.app_user_id !== appUserId) return fail(c, 409, 'purchase_used')
+      return json(c, 200, { transactionId: known.transaction_id, tier: tierByProduct(known.product_id)?.id ?? null, claimed: known.gift_id !== null })
+    }
+    const result = await c.get('services').purchases.verify(
+      { platform: String(body?.platform ?? ''), transactionId, productId: typeof body?.productId === 'string' ? body.productId : undefined },
+      appUserId,
+    )
+    if (!result.ok) return fail(c, 402, 'purchase_invalid', { reason: result.reason })
+    const now = c.get('services').now()
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO purchases (transaction_id, app_user_id, product_id, store, is_sandbox, purchased_at, source, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'sync', ?)`,
+      )
+      .bind(result.transactionId, result.appUserId, result.productId, result.store, result.isSandbox ? 1 : 0, result.purchasedAt, now)
+      .run()
+    const row = await db.prepare('SELECT * FROM purchases WHERE transaction_id = ?').bind(result.transactionId).first<PurchaseRow>()
+    if (!row || row.app_user_id !== appUserId) return fail(c, 409, 'purchase_used')
+    return json(c, 200, { transactionId: row.transaction_id, tier: tierByProduct(row.product_id)?.id ?? null, claimed: row.gift_id !== null })
+  })
+
   app.post('/api/gifts/:giftId/purchase', async (c) => {
     const gift = await ownedGift(c)
     if (!gift) return fail(c, 404, 'not_found')
