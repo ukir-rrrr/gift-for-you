@@ -15,7 +15,8 @@ test('plays the demo gift through the letter', async ({ page }) => {
   await page.screenshot({ path: 'e2e/screenshots/pedestal.png' })
   await page.getByTestId('prompt').click()
   await expect(page.getByTestId('letter')).toBeVisible()
-  await expect(page.locator('#letter-body')).not.toHaveText('')
+  await expect(page.locator('#letter-body')).toContainText('健太', { timeout: 10000 })
+  await expect(page.locator('#letter-body')).toHaveText(/箱の中は、ずっと渡したかったマフラー。/)
   await page.screenshot({ path: 'e2e/screenshots/letter.png' })
 })
 
