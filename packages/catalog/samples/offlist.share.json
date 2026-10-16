@@ -21,5 +21,5 @@
     "egift": { "present": true, "kind": "url", "domain": "shop.example", "passphrase": false }
   },
   "options": { "bgmId": "bgm-01" },
-  "expiresAt": "2027-01-13T00:00:00Z"
+  "expiresAt": "2028-12-31T00:00:00Z"
 }

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PALETTE } from '@gfy/catalog'
 import { UNAVAILABLE } from '../src/copy'
-import { loadGift } from '../src/route'
+import { giftIdFromLocation, loadGift } from '../src/route'
 import { integerScale } from '../src/scale'
 
 const assets = join(import.meta.dirname, '../public/assets')
@@ -74,7 +74,12 @@ describe('gift routing', () => {
     expect(loadGift('missing-id', now).ok).toBe(false)
     expect(loadGift('expired', now).ok).toBe(false)
     expect(loadGift('demo', now).ok).toBe(true)
+    expect(loadGift('demo', new Date('2027-06-01T00:00:00Z')).ok).toBe(true)
     expect(UNAVAILABLE).toBe('この冒険は見つかりませんでした。リンクをご確認ください。')
+    expect(giftIdFromLocation({ pathname: '/g/%', hash: '' })).toBeNull()
+    expect(giftIdFromLocation({ pathname: '/g/%E0%A4', hash: '' })).toBeNull()
+    expect(giftIdFromLocation({ pathname: '/', hash: '#/g/%' })).toBeNull()
+    expect(giftIdFromLocation({ pathname: '/g/demo', hash: '' })).toBe('demo')
   })
 })
 

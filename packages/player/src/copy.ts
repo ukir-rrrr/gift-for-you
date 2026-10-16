@@ -22,6 +22,7 @@ export const copy = {
   rotate: 'たてむきにしてね',
   retry: 'つながったら開く',
   egift: 'eギフトを受け取る',
+  code: 'コード',
   warn: 'このドメインは確認リストにありません',
   openLink: '開く',
   openAnyway: 'それでも開く',

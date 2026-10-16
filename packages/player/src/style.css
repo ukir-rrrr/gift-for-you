@@ -250,6 +250,12 @@ body[data-screen="boot"] #dock {
   flex: 1;
 }
 
+#egift-code {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 #error {
   z-index: 7;
   background: #d8c9b0;

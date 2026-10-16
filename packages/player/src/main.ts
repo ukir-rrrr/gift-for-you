@@ -208,7 +208,18 @@ function boot(share: ShareJson, id: string) {
       letterBody.textContent = ''
       retry.hidden = true
       const url = reveal.egift?.url
-      egift.hidden = rec || !url
+      const code = reveal.egift?.kind === 'code' ? reveal.egift.code : undefined
+      const claim = must<HTMLButtonElement>('btn-egift')
+      const codeBox = must<HTMLParagraphElement>('egift-code')
+      claim.hidden = rec || !url
+      if (!rec && code) {
+        codeBox.hidden = false
+        codeBox.textContent = `${copy.code} ${sanitizeDisplay(code)}`
+      } else {
+        codeBox.hidden = true
+        codeBox.textContent = ''
+      }
+      egift.hidden = rec || (!url && !code)
     } catch {
       retry.hidden = false
       egift.hidden = true

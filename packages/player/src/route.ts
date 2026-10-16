@@ -9,12 +9,21 @@ export type Flags = {
   difficulty: 'easy' | 'normal' | 'hard' | null
 }
 
+function decodeGiftId(raw: string): string | null {
+  try {
+    const id = decodeURIComponent(raw)
+    return id.length > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
 export function giftIdFromLocation(loc: { pathname: string; hash: string }): string | null {
   const hashPath = loc.hash.replace(/^#/, '')
   const path = hashPath.startsWith('/g/') ? hashPath : loc.pathname
   if (path === '/' || path === '') return 'demo'
   const match = path.match(/\/g\/([^/]+)\/?$/)
-  return match ? decodeURIComponent(match[1]) : null
+  return match ? decodeGiftId(match[1]) : null
 }
 
 export function readFlags(search: string): Flags {

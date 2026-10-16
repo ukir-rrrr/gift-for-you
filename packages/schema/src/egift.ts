@@ -25,10 +25,14 @@ function bareHost(hostname: string): string {
   return hostname.toLowerCase().replace(/\.$/, '').replace(/^www\./, '')
 }
 
+function hostOrSuffix(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`)
+}
+
 export function domainAllowed(hostname: string, extra: readonly string[] = []): boolean {
   const host = bareHost(hostname)
   const list = [...ALLOWED_DOMAINS, ...extra.map(bareHost)]
-  return list.some((domain) => host === domain || host.endsWith(`.${domain}`))
+  return list.some((domain) => hostOrSuffix(host, domain))
 }
 
 export function checkEgiftUrl(url: string, extraAllow: readonly string[] = []): EgiftCheck {
@@ -42,7 +46,7 @@ export function checkEgiftUrl(url: string, extraAllow: readonly string[] = []): 
     return { status: 'block', domain: parsed.hostname, reason: 'scheme' }
   }
   const domain = bareHost(parsed.hostname)
-  if (SHORTENERS.has(domain)) {
+  if ([...SHORTENERS].some((shortener) => hostOrSuffix(domain, shortener))) {
     return { status: 'block', domain, reason: 'shortener' }
   }
   if (domainAllowed(domain, extraAllow)) {

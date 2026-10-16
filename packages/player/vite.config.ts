@@ -7,6 +7,15 @@ import { defineConfig } from 'vite'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
+function decodeSegment(raw: string): string | null {
+  try {
+    const id = decodeURIComponent(raw)
+    return id.length > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = []
@@ -72,7 +81,12 @@ function giftApi(): Plugin {
     const url = req.url?.split('?')[0] ?? ''
     const event = url.match(/^\/s\/([^/]+)\/events$/)
     if (req.method === 'POST' && event) {
-      const id = decodeURIComponent(event[1])
+      const id = decodeSegment(event[1])
+      if (!id) {
+        res.statusCode = 400
+        res.end()
+        return
+      }
       void readBody(req).then((raw) => {
         try {
           const body = JSON.parse(raw) as { type?: string }
@@ -87,7 +101,12 @@ function giftApi(): Plugin {
     }
     const reveal = url.match(/^\/s\/([^/]+)\/reveal$/)
     if (req.method === 'GET' && reveal) {
-      const id = decodeURIComponent(reveal[1])
+      const id = decodeSegment(reveal[1])
+      if (!id) {
+        res.statusCode = 400
+        res.end()
+        return
+      }
       if (!goals.has(id)) {
         res.statusCode = 403
         res.setHeader('content-type', 'application/json')

@@ -27,5 +27,7 @@ test('missing and expired gifts share one error', async ({ page }) => {
   const expired = await page.getByTestId('error').innerText()
   expect(missing).toBe(expired)
   expect(missing).toContain('見つかりません')
+  await page.goto('/#/g/%')
+  await expect(page.getByTestId('error')).toHaveText(missing)
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex')
 })

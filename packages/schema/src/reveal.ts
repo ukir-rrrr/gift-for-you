@@ -17,7 +17,11 @@ export const revealJsonSchema = z
       .object({
         kind: z.enum(['url', 'code']),
         url: z.string().optional(),
-        code: z.string().max(80).optional(),
+        code: z
+          .string()
+          .max(80)
+          .transform(sanitizeDisplay)
+          .optional(),
       })
       .optional(),
   })

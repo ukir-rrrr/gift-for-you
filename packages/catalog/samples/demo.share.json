@@ -31,5 +31,5 @@
     "colors": { "hair": "#5c3a28", "skin": "#e8c4a0", "outfit": "#4a6580" }
   },
   "options": { "recordingModeDefault": false, "bgmId": "bgm-01" },
-  "expiresAt": "2027-01-13T00:00:00Z"
+  "expiresAt": "2028-12-31T00:00:00Z"
 }
