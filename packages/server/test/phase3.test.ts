@@ -187,6 +187,29 @@ describe('F3-03 purchases', () => {
     expect(unclaimed.purchases.map((p) => p.transactionId)).toEqual([`sandbox:${second}`])
   })
 
+  it('lets nobody claim an unused purchase whose account was deleted, and skips ownerless webhook purchases', async () => {
+    const ctx = setup({ REVENUECAT_WEBHOOK_AUTH: 'Bearer hook-secret' })
+    const owner = deviceKey()
+    const tx = 'sandbox-orphaned-0001'
+    await post(ctx, '/api/purchases', { platform: 'sandbox', transactionId: tx }, { key: owner })
+    expect((await ctx.request('/api/account', { method: 'DELETE', key: owner })).status).toBe(204)
+    expect(await ctx.env.DB.prepare('SELECT app_user_id FROM purchases').first()).toEqual({ app_user_id: null })
+    const other = deviceKey()
+    const giftId = await draftWithContent(ctx, other)
+    const claim = await post(ctx, `/api/gifts/${giftId}/purchase`, { platform: 'sandbox', transactionId: tx }, { key: other })
+    expect(claim.status).toBe(409)
+    expect(await claim.json()).toEqual({ error: 'purchase_used' })
+
+    const hook = await post(
+      ctx,
+      '/webhooks/revenuecat',
+      { event: { id: 'ev-ownerless', type: 'NON_RENEWING_PURCHASE', product_id: 'gfy_gift_standard', transaction_id: '3000000001' } },
+      { headers: { authorization: 'Bearer hook-secret' } },
+    )
+    expect(hook.status).toBe(200)
+    expect(await ctx.env.DB.prepare("SELECT 1 AS x FROM purchases WHERE transaction_id = '3000000001'").first()).toBeNull()
+  })
+
   it('answers 503 for the webhook until its secret is set', async () => {
     const ctx = setup()
     expect((await post(ctx, '/webhooks/revenuecat', { event: { id: 'x', type: 'TEST' } })).status).toBe(503)

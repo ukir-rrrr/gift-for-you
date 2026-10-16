@@ -581,8 +581,9 @@ export function createApp(options: AppOptions = {}) {
     // The event id and what it records go in one batch: if recording fails, the id is not kept and
     // RevenueCat's retry is processed instead of being taken for a duplicate. Both writes are idempotent.
     const writes = [db.prepare('INSERT OR IGNORE INTO webhook_events (id, type, received_at) VALUES (?, ?, ?)').bind(ev.id, ev.type, now)]
-    if (ev.type === 'NON_RENEWING_PURCHASE' && transactionId && tierByProduct(productId) && !(sandbox && c.env.REVENUECAT_ALLOW_SANDBOX === '0')) {
-      const appUserId = typeof ev.app_user_id === 'string' ? ev.app_user_id : null
+    const appUserId = typeof ev.app_user_id === 'string' && ev.app_user_id ? ev.app_user_id : null
+    // A purchase without an app user could never be claimed (owners must match), so it is not recorded.
+    if (ev.type === 'NON_RENEWING_PURCHASE' && appUserId && transactionId && tierByProduct(productId) && !(sandbox && c.env.REVENUECAT_ALLOW_SANDBOX === '0')) {
       writes.push(
         db
           .prepare(
