@@ -189,10 +189,12 @@ test('creates, previews, publishes, and shares a gift end to end', async ({ page
   ])
 
   // F2-09: opening and reaching the goal each push once to the mock notifier.
+  const outbox = async () => (await (await page.request.get(`${API}/api/_mock/push`)).json()).sent as { body: string }[]
+  const before = (await outbox()).length
   for (const type of ['opened', 'opened', 'goal_reached']) {
     await page.request.post(`${API}/s/${shareId}/events`, { data: { type, at: new Date().toISOString() } })
   }
-  const pushes = (await (await page.request.get(`${API}/api/_mock/push`)).json()).sent as { body: string }[]
+  const pushes = (await outbox()).slice(before)
   expect(pushes.map((push) => push.body)).toEqual(['彩さんがギフトを開きました', '彩さんがゴールにたどりつきました'])
 
   // The recipient's link opens the published gift in the player.
@@ -237,13 +239,18 @@ test('a photo that fails moderation blocks publishing until it is replaced', asy
   await page.screenshot({ path: `${SHOTS}/13-moderation-rejected.png` })
   await tid(page, 'fix-photos').click()
   await expect(tid(page, 'step-coins')).toContainText('差し替えてください')
+  const before = await tid(page, 'coin-photo-1').evaluate((el) => el.outerHTML)
   const chooser = page.waitForEvent('filechooser')
   await tid(page, 'coin-replace-1').click()
   await (await chooser).setFiles({ name: 'other.jpg', mimeType: 'image/jpeg', buffer: await photoWithGps(page, '#1a1614', 900, 900) })
+  // The new photo is resized and stored before going back.
+  await expect.poll(() => tid(page, 'coin-photo-1').evaluate((el) => el.outerHTML), { timeout: 15000 }).not.toBe(before)
   await page.unroute(`${API}/api/gifts/*/photos/*`)
   await page.goBack()
   await tid(page, 'recheck').click()
-  await expect(tid(page, 'moderation-ok')).toBeVisible({ timeout: 30000 })
+  await expect(tid(page, 'moderation-ok').or(tid(page, 'publish-error'))).toBeVisible({ timeout: 30000 })
+  await expect(tid(page, 'publish-error')).toHaveCount(0)
+  await expect(tid(page, 'moderation-ok')).toBeVisible()
 })
 
 test('the draft is saved on the device and restored after a reload', async ({ page }) => {

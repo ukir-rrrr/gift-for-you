@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Api, type Published } from '../lib/api'
 import { emptyDraft, reduceDraft, type Draft, type DraftAction } from '../lib/draft'
 import { loadDraft, photoDataUrl, saveDraft, type KV } from '../lib/storage'
@@ -11,6 +11,11 @@ export type PublishedGift = Published & { giftId: string; toName: string }
 type AppState = {
   draft: Draft
   dispatch: (action: DraftAction) => void
+  /**
+   * The draft as of now. Hidden stack screens are frozen and keep rendering an older draft, so
+   * actions that start work (upload, publish) read it from here instead of their closure.
+   */
+  latestDraft: () => Draft
   /** False until the saved draft has been read, so nothing overwrites it on start. */
   loaded: boolean
   saving: boolean
@@ -36,6 +41,11 @@ export function AppProvider({ children, kv = defaultKv }: { children: ReactNode;
   const [published, setPublished] = useState<PublishedGift | null>(null)
   const api = useMemo(() => new Api(API_ORIGIN, deviceKey), [])
   const skipNextSave = useRef(true)
+  const latest = useRef(draft)
+  useLayoutEffect(() => {
+    latest.current = draft
+  }, [draft])
+  const latestDraft = useCallback(() => latest.current, [])
 
   useEffect(() => {
     let alive = true
@@ -66,8 +76,8 @@ export function AppProvider({ children, kv = defaultKv }: { children: ReactNode;
   }, [draft, kv, loaded])
 
   const value = useMemo(
-    () => ({ draft, dispatch, loaded, saving, kv, api, published, setPublished }),
-    [draft, loaded, saving, kv, api, published],
+    () => ({ draft, dispatch, latestDraft, loaded, saving, kv, api, published, setPublished }),
+    [draft, latestDraft, loaded, saving, kv, api, published],
   )
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }

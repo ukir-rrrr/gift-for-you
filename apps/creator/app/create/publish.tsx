@@ -22,7 +22,7 @@ type Phase =
 /** F2-08: upload -> moderation -> preview -> sandbox purchase -> share id -> link, QR, share sheet. */
 export default function PublishStep() {
   const router = useRouter()
-  const { draft, dispatch, kv, api, setPublished } = useApp()
+  const { draft, dispatch, latestDraft, kv, api, setPublished } = useApp()
   const built = useMemo(() => buildContent(draft), [draft])
   const urls = usePhotoUrls(draft.coins.map((coin) => coin.photoRef))
   const [phase, setPhase] = useState<Phase>({ kind: 'start' })
@@ -51,9 +51,16 @@ export default function PublishStep() {
 
   async function check() {
     setPhase({ kind: 'working', stage: 'upload' })
+    // Coming back from replacing a photo, this screen may still hold the old draft; use the current one.
+    const current = latestDraft()
+    const fresh = buildContent(current)
+    if (!fresh.ok) {
+      setPhase({ kind: 'failed', stage: 'upload', message: fresh.issues[0] ?? describeError(null) })
+      return
+    }
     const result = await uploadAndModerate(
-      draft,
-      content,
+      current,
+      fresh.value,
       { api, readPhoto: (ref) => loadPhoto(kv, ref), rememberGift: (giftId) => dispatch({ type: 'serverGift', giftId }) },
       (stage, detail) => setPhase({ kind: 'working', stage, detail }),
     )

@@ -105,6 +105,8 @@ export function describeError(error: unknown): string {
   switch (error.code) {
     case 'offline':
       return 'サーバーにつながりません。通信を確かめてください'
+    case 'photo_missing_local':
+      return '写真がこの端末に見つかりません。写真を選び直してください'
     case 'photo_rejected':
       return '公開できない写真があります。別の写真に差し替えてください'
     case 'text_rejected':
