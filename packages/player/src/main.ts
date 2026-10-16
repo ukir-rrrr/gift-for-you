@@ -10,7 +10,7 @@ import { checkEgiftUrl, sanitizeDisplay, type Difficulty, type ShareJson } from 
 import Phaser from 'phaser'
 import { Music } from './audio'
 import { copy, UNAVAILABLE } from './copy'
-import { fetchReveal, postEvent, type Reveal } from './net'
+import { fetchReveal, flushQueue, postEvent, type Reveal } from './net'
 import { PlatformerMode } from './mode'
 import { loadGift, readFlags, recipientName, giftIdFromLocation } from './route'
 import { integerScale } from './scale'
@@ -400,6 +400,7 @@ function boot(share: ShareJson, id: string) {
   applyChrome()
   document.body.dataset.screen = 'title'
   rotate()
+  void flushQueue()
 }
 
 const giftId = giftIdFromLocation(window.location)

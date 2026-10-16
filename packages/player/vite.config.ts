@@ -79,6 +79,8 @@ function giftApi(): Plugin {
   }
   const handler: Connect.NextHandleFunction = (req, res, next) => {
     const url = req.url?.split('?')[0] ?? ''
+    // Gift pages and their API stay out of search, whatever the id resolves to.
+    if (url.startsWith('/g/') || url.startsWith('/s/')) res.setHeader('X-Robots-Tag', 'noindex, nofollow')
     const event = url.match(/^\/s\/([^/]+)\/events$/)
     if (req.method === 'POST' && event) {
       const id = decodeSegment(event[1])
