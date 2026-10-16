@@ -123,6 +123,42 @@ function giftApi(): Plugin {
       })
       return
     }
+    // Phase 3 recipient calls. The dev server only acknowledges them; the Worker stores them.
+    if (req.method === 'GET' && url === '/s/egift-domains') {
+      res.setHeader('content-type', 'application/json')
+      res.end('{"domains":[]}')
+      return
+    }
+    const safety = url.match(/^\/s\/([^/]+)\/(report|block|thanks)$/)
+    if (req.method === 'POST' && safety) {
+      const id = decodeSegment(safety[1])
+      void readBody(req).then((raw) => {
+        res.setHeader('content-type', 'application/json')
+        if (!id || raw === null) {
+          res.statusCode = 400
+          res.end('{}')
+          return
+        }
+        if (safety[2] === 'thanks') {
+          if (!goals.has(id)) {
+            res.statusCode = 404
+            res.end('{"error":"not_found"}')
+            return
+          }
+          let stamp = 'thanks'
+          try {
+            stamp = String((JSON.parse(raw) as { stamp?: string }).stamp ?? 'thanks')
+          } catch {
+            // keep the default stamp
+          }
+          res.end(JSON.stringify({ stamp }))
+          return
+        }
+        res.statusCode = safety[2] === 'report' ? 202 : 204
+        res.end(safety[2] === 'report' ? '{"ok":true}' : '')
+      })
+      return
+    }
     // Samples are bundled with the player; any other id is a published gift the dev server does not hold.
     if (req.method === 'GET' && /^\/s\/[^/]+\/(share|photos\/[^/]+)$/.test(url)) {
       res.statusCode = 404

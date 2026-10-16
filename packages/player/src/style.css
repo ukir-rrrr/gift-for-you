@@ -443,3 +443,132 @@ body[data-screen="boot"] #dock {
 #confirm[hidden] {
   display: none;
 }
+
+/* Phase 3: links, report sheet, thank-you stamps. */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.links a, .links .link {
+  color: #2c3a48;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 2px;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+body[data-rec="1"] .links,
+body[data-rec="1"] #thanks {
+  display: none;
+}
+
+#report {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  background: rgba(26, 22, 20, 0.55);
+  align-items: flex-end;
+  justify-content: center;
+}
+
+#report:not([hidden]) {
+  display: flex;
+}
+
+#report[hidden] {
+  display: none;
+}
+
+#report .sheet {
+  background: #d8c9b0;
+  width: min(100%, 480px);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 16px max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#report h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: normal;
+}
+
+#report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#report fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#report legend {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+#report label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#report textarea {
+  font: inherit;
+  padding: 8px;
+  border: 2px solid #2a2118;
+  background: #f4ecd8;
+}
+
+#report hr {
+  width: 100%;
+  border: 0;
+  border-top: 2px dashed #a08468;
+}
+
+#report-result:empty {
+  display: none;
+}
+
+#thanks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+#thanks[hidden] {
+  display: none;
+}
+
+#thanks p {
+  margin: 0;
+  font-size: 13px;
+}
+
+#thanks-stamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}

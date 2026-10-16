@@ -1,5 +1,7 @@
 export const UNAVAILABLE = 'この冒険は見つかりませんでした。リンクをご確認ください。'
 
+export const BLOCKED_SENDER = 'ブロックした送り主からのギフトなので、ここでは開けません。'
+
 export const copy = {
   title: (name: string) => `${name}へ、ちょっとした冒険を`,
   start: 'はじめる',
@@ -40,6 +42,14 @@ export const copy = {
   previewLink: 'プレビューでは開きません',
   unlockLabel: '合言葉',
   unlockButton: 'ひらく',
+  reportPick: 'りゆうを選んでください',
+  reportSent: '受け付けました。ありがとうございます。',
+  reportBusy: 'しばらく待ってからもう一度どうぞ',
+  reportFailed: '送れませんでした。つながったらもう一度どうぞ',
+  previewNoSend: 'プレビューでは送りません',
+  blockDone: 'ブロックしました。この端末ではこの送り主のギフトは開きません。',
+  thanksSent: (label: string) => `「${label}」を送りました`,
+  thanksFailed: '送れませんでした。もう一度どうぞ',
   unlockError: {
     wrong: '合言葉がちがうみたい',
     busy: 'しばらく待ってからもう一度',
