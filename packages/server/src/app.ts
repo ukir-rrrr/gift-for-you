@@ -424,7 +424,7 @@ export function createApp(options: AppOptions = {}) {
     const body = (await readJson(c, 4096)) as { platform?: unknown; transactionId?: unknown; productId?: unknown } | undefined
     const transactionId = String(body?.transactionId ?? '')
     // Only the same transaction is answered "done" for a bought gift. Any other one goes on to be
-    // verified and recorded, then refused as purchase_used, so it stays a credit instead of being lost.
+    // verified: if it holds it is kept as a credit and refused as purchase_used, else purchase_invalid.
     if (gift.purchase_tx && (gift.purchase_tx === transactionId || gift.purchase_tx === `sandbox:${transactionId}`)) {
       return json(c, 200, { ok: true, tier: gift.tier })
     }

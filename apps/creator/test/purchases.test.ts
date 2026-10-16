@@ -90,12 +90,15 @@ describe('F3-03 purchase flow in the app', () => {
     await savePending(kv, { giftId: 'g-done', proof: { platform: 'ios', transactionId: 'a' }, at: 1 })
     await savePending(kv, { giftId: 'g-gone', proof: { platform: 'ios', transactionId: 'b' }, at: 2 })
     await savePending(kv, { giftId: 'g-later', proof: { platform: 'ios', transactionId: 'c' }, at: 3 })
+    await savePending(kv, { giftId: 'g-refunded', proof: { platform: 'ios', transactionId: 'r' }, at: 4 })
     const synced: string[] = []
     const { api } = server((method, path, body) => {
       const tx = (body as { transactionId?: string } | undefined)?.transactionId
       if (path === '/api/gifts/g-done/purchase') return { status: 200, body: { ok: true } }
       if (path === '/api/gifts/g-gone/purchase') return { status: 404, body: { error: 'not_found' } }
       if (path === '/api/gifts/g-later/purchase') return { status: 503, body: { error: 'purchase_unavailable' } }
+      if (path === '/api/gifts/g-refunded/purchase') return { status: 402, body: { error: 'purchase_invalid', reason: 'refunded' } }
+      if (method === 'POST' && path === '/api/purchases' && tx === 'r') return { status: 402, body: { error: 'purchase_invalid' } }
       if (method === 'POST' && path === '/api/purchases') {
         synced.push(tx!)
         return { status: 200, body: { transactionId: tx, tier: 'standard', claimed: false } }
@@ -113,7 +116,7 @@ describe('F3-03 purchase flow in the app', () => {
     }
     const credits = await settlePurchases(api, kv, store)
     expect(credits.map((credit) => credit.transactionId)).toEqual(['b'])
-    // g-gone became a credit; g-later waits for the next start.
+    // g-gone became a credit, g-refunded is dropped for good; g-later waits for the next start.
     expect((await loadPending(kv)).map((entry) => entry.giftId)).toEqual(['g-later'])
     expect(synced).toEqual(['b', 'old', 'new'])
     // Store transactions are synced once.

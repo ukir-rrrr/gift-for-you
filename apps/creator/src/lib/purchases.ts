@@ -57,7 +57,6 @@ export async function dropPending(kv: KV, transactionId: string): Promise<void> 
   else await kv.setItem(PENDING_KEY, JSON.stringify(list))
 }
 
-const settledCodes = new Set(['purchase_used', 'not_draft'])
 
 /**
  * F3-03: consumables cannot be restored, so a payment the server never saw is replayed instead:
@@ -71,12 +70,13 @@ export async function settlePurchases(api: Api, kv: KV, store?: Store): Promise<
       await api.purchase(entry.giftId, entry.proof)
       await dropPending(kv, entry.proof.transactionId)
     } catch (error) {
-      if (!(error instanceof ApiError) || error.status === 0 || error.status >= 500) continue
-      if (settledCodes.has(error.code) || error.status === 404) {
-        // The gift took another purchase, was published, or its draft is gone: keep the payment as a credit.
-        await api.syncPurchase(entry.proof).catch(() => undefined)
-        await dropPending(kv, entry.proof.transactionId)
-      }
+      // Offline, rate limited, or server trouble: try again on the next start.
+      if (!(error instanceof ApiError) || error.status === 0 || error.status === 429 || error.status >= 500) continue
+      // Any other answer is final for this gift (taken by another purchase, published, draft gone, or a
+      // transaction the store does not vouch for). Hand a still-valid payment over as a credit, then stop
+      // resending, so a permanently refused transaction is not retried on every start.
+      await api.syncPurchase(entry.proof).catch(() => undefined)
+      await dropPending(kv, entry.proof.transactionId)
     }
   }
   if (store?.transactions) {

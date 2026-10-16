@@ -182,6 +182,7 @@ describe('F3-03 purchases', () => {
     const second = `sandbox-${crypto.randomUUID()}`
     const again = await post(ctx, `/api/gifts/${giftId}/purchase`, { platform: 'sandbox', transactionId: second }, { key })
     expect(again.status).toBe(409)
+    expect(await again.json()).toEqual({ error: 'purchase_used' })
     const unclaimed = (await (await ctx.request('/api/purchases/unclaimed', { key })).json()) as { purchases: { transactionId: string }[] }
     expect(unclaimed.purchases.map((p) => p.transactionId)).toEqual([`sandbox:${second}`])
   })
