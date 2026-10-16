@@ -123,6 +123,19 @@ function giftApi(): Plugin {
       })
       return
     }
+    // Samples are bundled with the player; any other id is a published gift the dev server does not hold.
+    if (req.method === 'GET' && /^\/s\/[^/]+\/(share|photos\/[^/]+)$/.test(url)) {
+      res.statusCode = 404
+      res.setHeader('content-type', 'application/json')
+      res.end('{"error":"not_found"}')
+      return
+    }
+    if (req.method === 'POST' && /^\/s\/[^/]+\/unlock$/.test(url)) {
+      res.statusCode = 403
+      res.setHeader('content-type', 'application/json')
+      res.end('{"error":"wrong"}')
+      return
+    }
     const reveal = url.match(/^\/s\/([^/]+)\/reveal$/)
     if (req.method === 'GET' && reveal) {
       const id = decodeSegment(reveal[1])

@@ -36,4 +36,13 @@ export const copy = {
   cancel: 'やめる',
   blocked: 'このリンクは開けません',
   watermark: 'gift-for-you',
+  previewMark: 'プレビュー',
+  previewLink: 'プレビューでは開きません',
+  unlockLabel: '合言葉',
+  unlockButton: 'ひらく',
+  unlockError: {
+    wrong: '合言葉がちがうみたい',
+    busy: 'しばらく待ってからもう一度',
+    offline: 'つながったらもう一度',
+  },
 }

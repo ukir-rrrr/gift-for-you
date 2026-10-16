@@ -57,9 +57,12 @@ test('tapping the letter finishes typing, and an off-list domain is warned', asy
 
 test('missing and expired gifts share one error', async ({ page }) => {
   await page.goto('/g/not-a-gift')
+  // Ids that are not bundled samples are looked up on the server first.
+  await expect(page.getByTestId('error')).toBeVisible()
   const missing = await page.getByTestId('error').innerText()
   const missingTitle = await page.title()
   await page.goto('/g/expired')
+  await expect(page.getByTestId('error')).toBeVisible()
   const expired = await page.getByTestId('error').innerText()
   expect(missing).toBe(expired)
   expect(await page.title()).toBe(missingTitle)

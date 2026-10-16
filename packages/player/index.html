@@ -73,6 +73,12 @@
       <div id="egift" hidden>
         <button id="btn-egift" type="button">eギフトを受け取る</button>
         <p id="egift-code" data-testid="egift-code" hidden></p>
+        <form id="unlock" data-testid="unlock" hidden>
+          <label for="unlock-input">合言葉</label>
+          <input id="unlock-input" type="text" autocomplete="off" autocapitalize="off" maxlength="32" />
+          <button type="submit">ひらく</button>
+          <p id="unlock-error" role="alert"></p>
+        </form>
       </div>
     </div>
     <div id="confirm" hidden>
