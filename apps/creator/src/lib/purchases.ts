@@ -58,6 +58,17 @@ export async function dropPending(kv: KV, transactionId: string): Promise<void> 
 }
 
 
+/** Verification refusals that will not change: anything else (e.g. "receipt") may be RevenueCat lagging. */
+const PERMANENT_REFUSALS = new Set(['refunded', 'product', 'platform', 'sandbox'])
+
+/** Offline, rate limited, server trouble, or a refusal that may pass later: keep the record and try again. */
+export function retryable(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true
+  if (error.status === 0 || error.status === 429 || error.status >= 500) return true
+  if (error.code === 'purchase_invalid') return !PERMANENT_REFUSALS.has(String(error.detail.reason ?? ''))
+  return false
+}
+
 /**
  * F3-03: consumables cannot be restored, so a payment the server never saw is replayed instead:
  * first every pending record (paid, then the app died or went offline), then every store
@@ -70,12 +81,14 @@ export async function settlePurchases(api: Api, kv: KV, store?: Store): Promise<
       await api.purchase(entry.giftId, entry.proof)
       await dropPending(kv, entry.proof.transactionId)
     } catch (error) {
-      // Offline, rate limited, or server trouble: try again on the next start.
-      if (!(error instanceof ApiError) || error.status === 0 || error.status === 429 || error.status >= 500) continue
-      // Any other answer is final for this gift (taken by another purchase, published, draft gone, or a
-      // transaction the store does not vouch for). Hand a still-valid payment over as a credit, then stop
-      // resending, so a permanently refused transaction is not retried on every start.
-      await api.syncPurchase(entry.proof).catch(() => undefined)
+      if (retryable(error)) continue
+      // A final answer for this gift (taken by another purchase, published, draft gone, or refused for
+      // good). Hand a still-valid payment over as a credit; keep the record unless that also settles.
+      try {
+        await api.syncPurchase(entry.proof)
+      } catch (syncError) {
+        if (retryable(syncError)) continue
+      }
       await dropPending(kv, entry.proof.transactionId)
     }
   }
@@ -88,8 +101,8 @@ export async function settlePurchases(api: Api, kv: KV, store?: Store): Promise<
           await api.syncPurchase(proof)
           synced.add(proof.transactionId)
         } catch (error) {
-          // A refused transaction (another user's, refunded) is not retried forever.
-          if (error instanceof ApiError && error.status > 0 && error.status < 500) synced.add(proof.transactionId)
+          // Refused for good (another user's, refunded, wrong product): not retried on every start.
+          if (!retryable(error)) synced.add(proof.transactionId)
         }
       }
     } catch {
