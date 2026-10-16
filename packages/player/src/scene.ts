@@ -56,6 +56,8 @@ export class PlayScene extends Phaser.Scene {
   mode: PlatformerMode | null = null
   course: RuntimeCourse | null = null
   playing = false
+  /** Held while the phone is sideways; the sim and timers stop. */
+  paused = false
   reduceFlash = false
   giftOpen = false
   revealBeat: RevealBeat | null = null
@@ -213,7 +215,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    if (!this.playing || !this.mode || !this.course) return
+    if (!this.playing || this.paused || !this.mode || !this.course) return
     const dt = delta / 1000
     this.mode.setInput(this.readInput())
     this.mode.update(dt)

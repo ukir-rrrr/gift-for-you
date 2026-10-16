@@ -50,6 +50,7 @@ button:active, a:active {
 
 #stage {
   min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -294,6 +295,11 @@ body[data-screen="boot"] #dock {
 #title, #letter, #error, #confirm, #rotate {
   position: fixed;
   inset: 0;
+  /* Notches and home indicators never cover text or buttons. */
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
 }
 
 #title:not([hidden]),
@@ -311,7 +317,8 @@ body[data-screen="boot"] #dock {
   align-items: center;
   justify-content: center;
   gap: 24px;
-  padding: 18% 10% 20%;
+  padding-top: max(18%, env(safe-area-inset-top));
+  padding-bottom: max(20%, env(safe-area-inset-bottom));
   text-align: center;
 }
 
@@ -326,7 +333,10 @@ body[data-screen="boot"] #dock {
   z-index: 6;
   background: #d8c9b0;
   flex-direction: column;
-  padding: 18vh 8vw 10vh;
+  padding-top: max(18vh, env(safe-area-inset-top));
+  padding-bottom: max(10vh, env(safe-area-inset-bottom));
+  padding-left: max(8vw, env(safe-area-inset-left));
+  padding-right: max(8vw, env(safe-area-inset-right));
   gap: 12px;
 }
 
@@ -350,7 +360,6 @@ body[data-screen="boot"] #dock {
   background: #d8c9b0;
   align-items: center;
   justify-content: center;
-  padding: 24px;
   text-align: center;
   font-size: 16px;
 }
@@ -365,7 +374,6 @@ body[data-screen="boot"] #dock {
 #confirm:not([hidden]) {
   flex-direction: column;
   gap: 12px;
-  padding: 24px;
 }
 
 #confirm-domain {

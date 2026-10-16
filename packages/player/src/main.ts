@@ -100,6 +100,7 @@ function boot(share: ShareJson, id: string) {
 
   const title = must<HTMLHeadingElement>('title-text')
   title.textContent = copy.title(recipientName(share))
+  document.title = title.textContent
   const start = must<HTMLButtonElement>('btn-start')
   game.events.once('gfy-ready', () => {
     scene.mount(mode, course, share.goal.giftItem.itemId)
@@ -452,8 +453,13 @@ function boot(share: ShareJson, id: string) {
     if (key === 'arrowup' || key === 'w' || key === ' ') press(keys, 'jump', false)
   })
 
+  // Only phones and tablets are asked to turn; a wide desktop window just letterboxes the 9:16 frame.
+  const coarse = window.matchMedia('(pointer: coarse)')
   const rotate = () => {
-    must('rotate').hidden = window.innerWidth <= window.innerHeight
+    const sideways = coarse.matches && window.innerWidth > window.innerHeight
+    must('rotate').hidden = !sideways
+    document.body.dataset.rotate = sideways ? '1' : '0'
+    scene.paused = sideways
     fit()
   }
   window.addEventListener('resize', rotate)
