@@ -174,6 +174,33 @@ describe('course rules', () => {
     expect(snap && snap.x).toBeLessThan(160)
   })
 
+  it('waits at the checkpoint while help is offered, then takes easy or declines', () => {
+    const course: RuntimeCourse = {
+      ...flat(300),
+      solids: [{ id: 'pad', x: 0, y: 272, w: 48, h: 48 }],
+      spawn: { x: 24, y: 272 },
+      goal: { x: 500, y: 272 },
+    }
+    for (const choice of ['easy', 'decline'] as const) {
+      const mode = new PlatformerMode()
+      mode.load(course, { assistAfter: 1 })
+      mode.setInput(right)
+      for (let i = 0; i < 180 && mode.assist() !== 'offered'; i++) mode.update(PHYSICS.step)
+      expect(mode.assist()).toBe('offered')
+      const held = mode.read()!
+      for (let i = 0; i < 60; i++) mode.update(PHYSICS.step)
+      expect(mode.read()!.time).toBe(held.time)
+      expect(mode.read()!.x).toBe(held.x)
+      mode.chooseAssist(choice)
+      const snap = mode.read()!
+      expect(snap.assist).toBe('none')
+      expect(snap.fails).toBe(0)
+      expect(snap.easy).toBe(choice === 'easy')
+      mode.update(PHYSICS.step * 2)
+      expect(mode.read()!.time).toBeGreaterThan(held.time)
+    }
+  })
+
   it('skip-section collects that section memory coins', () => {
     const coins = [
       { order: 1, photoRef: 'photo-1', message: '一' },

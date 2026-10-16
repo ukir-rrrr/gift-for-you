@@ -12,6 +12,8 @@ export const copy = {
   invincible: 'むてき',
   float: 'ふわふわ',
   skip: 'この先へ',
+  assistEasy: 'かんたん',
+  decline: 'このまま',
   easyOn: 'かんたん中',
   easyOff: 'かんたん',
   difficulty: {

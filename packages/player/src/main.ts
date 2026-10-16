@@ -17,7 +17,7 @@ import { integerScale } from './scale'
 import { fold, screenOf, showingGift, type SessionPhase } from './phase'
 import { VirtualPad, type PadKey } from './pad'
 import { PlayScene } from './scene'
-import type { InputState } from './sim/platformer'
+import type { AssistChoice, InputState } from './sim/platformer'
 
 // Keyboard and pad keep separate held sets so releasing one never cancels the other.
 const keys = { left: false, right: false, jump: false }
@@ -277,12 +277,17 @@ function boot(share: ShareJson, id: string) {
     popupId = ''
     memory.hidden = true
   })
-  function pickAssist(choice: 'invincible' | 'float' | 'skip') {
+  function pickAssist(choice: AssistChoice) {
+    if (mode.assist() !== 'offered') return
     mode.chooseAssist(choice)
+    if (choice === 'easy') easy = true
+    applyChrome()
   }
   must('btn-invincible').addEventListener('click', () => pickAssist('invincible'))
   must('btn-float').addEventListener('click', () => pickAssist('float'))
+  must('btn-assist-easy').addEventListener('click', () => pickAssist('easy'))
   must('btn-skip').addEventListener('click', () => pickAssist('skip'))
+  must('btn-decline').addEventListener('click', () => pickAssist('decline'))
   easyButton.addEventListener('click', () => {
     easy = !easy
     mode.setEasy(easy)

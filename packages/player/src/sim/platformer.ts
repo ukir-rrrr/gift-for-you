@@ -142,7 +142,15 @@ export function sectionAt(course: RuntimeCourse, x: number) {
   return best
 }
 
-export function chooseAssist(state: SimState, course: RuntimeCourse, choice: 'invincible' | 'float' | 'skip') {
+export type AssistChoice = 'invincible' | 'float' | 'easy' | 'skip' | 'decline'
+
+export function chooseAssist(state: SimState, course: RuntimeCourse, choice: AssistChoice) {
+  if (choice === 'easy' || choice === 'decline') {
+    if (choice === 'easy') state.easy = true
+    state.assist = 'none'
+    state.fails = 0
+    return
+  }
   if (choice === 'skip') {
     const section = sectionAt(course, state.x)
     for (const coin of course.coins) {

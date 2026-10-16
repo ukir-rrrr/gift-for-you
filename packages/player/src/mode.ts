@@ -6,6 +6,7 @@ import {
   dismissPopup,
   snapshot,
   stepSim,
+  type AssistChoice,
   type AssistMode,
   type InputState,
   type SimState,
@@ -55,7 +56,7 @@ export class PlatformerMode implements GameMode {
     this.state.walkFrames = frameCount
   }
 
-  chooseAssist(choice: 'invincible' | 'float' | 'skip') {
+  chooseAssist(choice: AssistChoice) {
     if (!this.state || !this.course) return
     chooseAssist(this.state, this.course, choice)
   }
@@ -79,6 +80,11 @@ export class PlatformerMode implements GameMode {
 
   update(dt: number) {
     if (!this.state || !this.course) return
+    // The hero waits at the checkpoint while the help menu is open.
+    if (this.state.assist === 'offered') {
+      this.acc = 0
+      return
+    }
     this.acc += Math.min(Math.max(dt, 0), 0.05)
     let first = true
     let guard = 0
