@@ -171,6 +171,21 @@ describe('F3-03 purchases', () => {
     expect(unclaimed.purchases.map((p) => p.transactionId)).toEqual(['sandbox:sandbox-race-0002'])
   })
 
+  it('answers a second transaction for a bought gift with purchase_used and keeps it as a credit', async () => {
+    const ctx = setup()
+    const key = deviceKey()
+    const giftId = await draftWithContent(ctx, key)
+    const first = `sandbox-${crypto.randomUUID()}`
+    expect((await post(ctx, `/api/gifts/${giftId}/purchase`, { platform: 'sandbox', transactionId: first }, { key })).status).toBe(200)
+    // The same transaction again is fine (a retry after a lost answer).
+    expect((await post(ctx, `/api/gifts/${giftId}/purchase`, { platform: 'sandbox', transactionId: first }, { key })).status).toBe(200)
+    const second = `sandbox-${crypto.randomUUID()}`
+    const again = await post(ctx, `/api/gifts/${giftId}/purchase`, { platform: 'sandbox', transactionId: second }, { key })
+    expect(again.status).toBe(409)
+    const unclaimed = (await (await ctx.request('/api/purchases/unclaimed', { key })).json()) as { purchases: { transactionId: string }[] }
+    expect(unclaimed.purchases.map((p) => p.transactionId)).toEqual([`sandbox:${second}`])
+  })
+
   it('answers 503 for the webhook until its secret is set', async () => {
     const ctx = setup()
     expect((await post(ctx, '/webhooks/revenuecat', { event: { id: 'x', type: 'TEST' } })).status).toBe(503)
