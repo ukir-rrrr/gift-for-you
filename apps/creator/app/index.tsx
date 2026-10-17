@@ -2,13 +2,14 @@ import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
 import { Body, Button, Card, Screen, Title } from '../src/components/ui'
+import { LegalLinks } from '../src/components/LegalLinks'
 import { isStarted, STEPS, stepIssues } from '../src/lib/draft'
 import { clearDraft } from '../src/lib/storage'
 import { useApp } from '../src/state/app'
 
 export default function Home() {
   const router = useRouter()
-  const { draft, dispatch, loaded, kv } = useApp()
+  const { draft, dispatch, loaded, kv, api } = useApp()
   const [confirmNew, setConfirmNew] = useState(false)
   if (!loaded) {
     return (
@@ -24,6 +25,7 @@ export default function Home() {
     await clearDraft(kv)
     dispatch({ type: 'reset' })
     setConfirmNew(false)
+    void api.track('create_started')
     router.push('/create/template')
   }
 
@@ -31,7 +33,7 @@ export default function Home() {
     <Screen testID="home">
       <Title>小さな冒険のギフトをつくる</Title>
       <Body muted>
-        思い出の写真をコインにして、相手が歩いて集める短いゲームを贈れます。リンクは14日間ひらけます。
+        思い出の写真をコインにして、相手が歩いて集める約2分のゲームを贈れます。リンクは14日間（ロングは30日間）ひらけます。
       </Body>
       {started ? (
         <Card>
@@ -60,6 +62,8 @@ export default function Home() {
         />
       )}
       <Button label="作成履歴" kind="plain" testID="history" onPress={() => router.push('/history')} />
+      <Button label="アカウントとデータ" kind="plain" testID="account" onPress={() => router.push('/account')} />
+      <LegalLinks />
     </Screen>
   )
 }

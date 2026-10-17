@@ -4,7 +4,9 @@ import {
   oscillatorFacing,
   oscillatorX,
   remapWalkFrame,
+  themeOf,
   type RuntimeCourse,
+  type Theme,
 } from '@gfy/catalog'
 import Phaser from 'phaser'
 import { glowAlpha } from './fx'
@@ -81,6 +83,7 @@ export class PlayScene extends Phaser.Scene {
   private platforms = new Map<string, Phaser.GameObjects.Image>()
   private walkers = new Map<string, Phaser.GameObjects.Image>()
   private flags: Phaser.GameObjects.Image[] = []
+  private themed: Phaser.GameObjects.GameObject[] = []
   private seenFails = 0
   private hurtUntil = -1
 
@@ -147,7 +150,50 @@ export class PlayScene extends Phaser.Scene {
     this.seenFails = 0
     this.hurtUntil = -1
     this.rebuild()
+    this.applyTheme(themeOf(course.templateId))
     this.item.setTexture(`item-${giftItemId}`)
+  }
+
+  /** A 1x1 texture of one palette colour, made once and stretched. */
+  private swatch(color: string): string {
+    const key = `px-${color}`
+    if (!this.textures.exists(key)) {
+      const texture = this.textures.createCanvas(key, 1, 1)
+      if (texture) {
+        texture.context.fillStyle = color
+        texture.context.fillRect(0, 0, 1, 1)
+        texture.refresh()
+      }
+    }
+    return key
+  }
+
+  /** Paints a course theme over the shared parallax art (washes, a sea band, stars). */
+  private applyTheme(theme: Theme) {
+    for (const object of this.themed) object.destroy()
+    this.themed = []
+    this.cameras.main.setBackgroundColor(theme.background)
+    this.forest.setVisible(theme.band === null)
+    const fixed = (x: number, y: number, w: number, h: number, color: string, depth: number, alpha = 1) => {
+      const image = this.add.image(x, y, this.swatch(color)).setOrigin(0, 0).setDisplaySize(w, h).setScrollFactor(0).setDepth(depth).setAlpha(alpha)
+      this.themed.push(image)
+      return image
+    }
+    if (theme.skyWash) fixed(0, 0, 180, 234, theme.skyWash.color, -1.5, theme.skyWash.alpha)
+    if (theme.band) {
+      fixed(0, 226, 180, 46, theme.band.color, -1)
+      fixed(0, 226, 180, 2, theme.band.crest, -1)
+      for (let i = 0; i < 6; i++) fixed(12 + i * 30, 240 + (i % 3) * 9, 8, 1, theme.band.crest, -1, 0.7)
+    }
+    for (let i = 0; i < theme.stars; i++) {
+      const star = this.add
+        .image(8 + ((i * 97 + 31) % 164), 8 + ((i * i * 41 + i * 17) % 118), 'spark')
+        .setScrollFactor(0)
+        .setDepth(-1.4)
+        .setAlpha(0.5 + (i % 3) * 0.2)
+      this.themed.push(star)
+    }
+    if (theme.dusk) fixed(0, 0, 180, 272, theme.dusk.color, -0.5, theme.dusk.alpha)
   }
 
   private ground(x: number, y: number, w: number, h: number) {

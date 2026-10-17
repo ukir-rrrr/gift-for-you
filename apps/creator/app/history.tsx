@@ -6,6 +6,7 @@ import { describeError, type RemoteGift } from '../src/lib/api'
 import { HISTORY_STATUS, mergeHistory, type HistoryRow } from '../src/lib/history'
 import { expiresLabel } from '../src/lib/qr'
 import { loadHistory } from '../src/lib/storage'
+import { THANKS_STAMPS } from '@gfy/schema'
 import { useApp } from '../src/state/app'
 
 /** F2-11: gifts made on this device (anonymous device key), with their state on the server. */
@@ -51,6 +52,10 @@ export default function History() {
               {row.opened ? '・開封済み' : ''}
               {row.goal ? '・ゴール' : ''}
             </Body>
+            {row.thanks ? (
+              <Body testID={`thanks-${row.giftId}`}>{`お返事：「${THANKS_STAMPS.find((stamp) => stamp.id === row.thanks)?.label ?? ''}」`}</Body>
+            ) : null}
+            {row.status === 'hidden' ? <Body muted>通報などで確認中のため、いまは開けません。</Body> : null}
           </Card>
         </Pressable>
       ))}

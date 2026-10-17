@@ -32,6 +32,8 @@ class Statement {
 
 export function fakeD1(): D1Database {
   const db = new DatabaseSync(':memory:')
+  // D1 enforces foreign keys; so does the fake.
+  db.exec('PRAGMA foreign_keys = ON')
   const dir = new URL('../migrations/', import.meta.url)
   for (const file of readdirSync(dir).sort()) db.exec(readFileSync(new URL(file, dir), 'utf8'))
   return {

@@ -1,20 +1,22 @@
 import {
   buildCourse01,
   buildCourseE2E,
+  buildCourseFor,
   compileCourse,
   presetForDifficulty,
   type RuntimeCoin,
   type RuntimeCourse,
 } from '@gfy/catalog'
-import { checkEgiftUrl, sanitizeDisplay, type Difficulty } from '@gfy/schema'
+import { checkEgiftUrl, REPORT_REASONS, sanitizeDisplay, THANKS_STAMPS, type Difficulty, type ReportReasonId } from '@gfy/schema'
 import Phaser from 'phaser'
 import { Music } from './audio'
-import { copy, UNAVAILABLE } from './copy'
+import { BLOCKED_SENDER, copy, UNAVAILABLE } from './copy'
 import { cuesBetween, loadSettings, saveSettings, type CueView } from './cues'
 import { flushQueue, postEvent, type Reveal } from './net'
 import { PlatformerMode } from './mode'
 import { readFlags, recipientName, giftIdFromLocation } from './route'
-import { isPreviewPath, previewSource, resolveGift, waitForPreview, type GiftSource } from './source'
+import { blockSender, fetchAllowedDomains, rememberThanks, sendReport, sendThanks, sentThanks, viewerKey } from './safety'
+import { isPreviewPath, previewSource, resolveGiftFor, waitForPreview, type GiftSource } from './source'
 import { integerScale } from './scale'
 import { fold, revealBeat, screenOf, showingGift, typedLetter, type SessionPhase } from './phase'
 import { VirtualPad, type PadKey } from './pad'
@@ -43,12 +45,82 @@ function localStore(): Storage | null {
   }
 }
 
-function showError() {
+function showError(text = UNAVAILABLE) {
   document.body.dataset.screen = screenOf({ kind: 'error' })
   must('title').hidden = true
+  must('letter').hidden = true
   const error = must('error')
   error.hidden = false
-  must<HTMLParagraphElement>('error-text').textContent = UNAVAILABLE
+  must<HTMLParagraphElement>('error-text').textContent = text
+}
+
+/** F3-05 / F3-12: report sheet and block, reachable from the title and the letter. */
+function wireReport(source: GiftSource) {
+  const sheet = must<HTMLDivElement>('report')
+  const reasons = must<HTMLFieldSetElement>('report-reasons')
+  const detail = must<HTMLTextAreaElement>('report-detail')
+  const result = must<HTMLParagraphElement>('report-result')
+  const removal = must<HTMLParagraphElement>('report-removal')
+  const send = must<HTMLButtonElement>('report-send')
+  const confirmBlock = must<HTMLDivElement>('block-confirm')
+  for (const reason of REPORT_REASONS) {
+    const label = document.createElement('label')
+    const input = document.createElement('input')
+    input.type = 'radio'
+    input.name = 'reason'
+    input.value = reason.id
+    input.setAttribute('data-testid', `reason-${reason.id}`)
+    label.append(input, document.createTextNode(reason.label))
+    reasons.append(label)
+  }
+  reasons.addEventListener('change', () => {
+    const picked = reasons.querySelector<HTMLInputElement>('input:checked')?.value
+    removal.hidden = picked !== 'me_in_photo'
+  })
+  document.querySelectorAll<HTMLButtonElement>('.open-report').forEach((button) => {
+    button.addEventListener('click', () => {
+      result.textContent = ''
+      confirmBlock.hidden = true
+      sheet.hidden = false
+    })
+  })
+  must('report-close').addEventListener('click', () => {
+    sheet.hidden = true
+  })
+  must<HTMLFormElement>('report-form').addEventListener('submit', (event) => {
+    event.preventDefault()
+    const picked = reasons.querySelector<HTMLInputElement>('input:checked')?.value as ReportReasonId | undefined
+    if (!picked) {
+      result.textContent = copy.reportPick
+      return
+    }
+    if (source.preview) {
+      result.textContent = copy.previewNoSend
+      return
+    }
+    send.disabled = true
+    void sendReport(source.id, picked, detail.value).then((outcome) => {
+      send.disabled = outcome === 'ok'
+      result.textContent = outcome === 'ok' ? copy.reportSent : outcome === 'busy' ? copy.reportBusy : copy.reportFailed
+    })
+  })
+  must('btn-block').addEventListener('click', () => {
+    confirmBlock.hidden = false
+  })
+  must('btn-block-yes').addEventListener('click', () => {
+    if (source.preview) {
+      result.textContent = copy.previewNoSend
+      return
+    }
+    void blockSender(source.id).then((outcome) => {
+      if (outcome !== 'ok') {
+        result.textContent = copy.reportFailed
+        return
+      }
+      sheet.hidden = true
+      showError(copy.blockDone)
+    })
+  })
 }
 
 function boot(source: GiftSource) {
@@ -64,7 +136,8 @@ function boot(source: GiftSource) {
     photoRef: coin.photoRef,
     message: sanitizeDisplay(coin.message),
   }))
-  const template = flags.e2e ? buildCourseE2E() : buildCourse01()
+  const templateId = (flags.template && buildCourseFor(flags.template) ? flags.template : null) ?? share.course.templateId
+  const template = flags.e2e ? { ...buildCourseE2E(), id: templateId } : (buildCourseFor(templateId) ?? buildCourse01())
   let course = compileCourse(template, presetForDifficulty(difficulty), coins)
   const scene = new PlayScene()
   const mode = new PlatformerMode()
@@ -92,6 +165,9 @@ function boot(source: GiftSource) {
   let letterDone = false
   let egiftReady = false
   const assistAfter = share.course.assist.autoAssistAfterFails
+  let extraDomains: string[] = []
+  if (!preview) void fetchAllowedDomains().then((domains) => (extraDomains = domains))
+  wireReport(source)
 
   mode.load(course, { easy, walkFrames, assistAfter })
   const game = new Phaser.Game({
@@ -246,6 +322,50 @@ function boot(source: GiftSource) {
     }
   }
 
+  // F3-09: one stamp back to the sender after the letter.
+  const thanks = must<HTMLDivElement>('thanks')
+  const thanksDone = must<HTMLParagraphElement>('thanks-done')
+  const stampButtons = THANKS_STAMPS.map((stamp) => {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.textContent = stamp.label
+    button.setAttribute('data-testid', `stamp-${stamp.id}`)
+    button.addEventListener('click', () => {
+      if (preview) {
+        thanksDone.hidden = false
+        thanksDone.textContent = copy.previewNoSend
+        return
+      }
+      for (const other of stampButtons) other.disabled = true
+      void sendThanks(id, stamp.id).then((stored) => {
+        if (!stored) {
+          for (const other of stampButtons) other.disabled = false
+          thanksDone.hidden = false
+          thanksDone.textContent = copy.thanksFailed
+          return
+        }
+        rememberThanks(id, stored)
+        markThanks(stored)
+      })
+    })
+    must('thanks-stamps').append(button)
+    return button
+  })
+
+  function markThanks(stampId: string) {
+    const label = THANKS_STAMPS.find((stamp) => stamp.id === stampId)?.label ?? ''
+    for (const button of stampButtons) button.disabled = true
+    thanksDone.hidden = false
+    thanksDone.textContent = copy.thanksSent(label)
+  }
+
+  function showThanks() {
+    if (rec) return
+    thanks.hidden = false
+    const already = preview ? null : sentThanks(id)
+    if (already) markThanks(already)
+  }
+
   unlockForm.addEventListener('submit', (event) => {
     event.preventDefault()
     const attempt = unlockInput.value.trim()
@@ -348,6 +468,7 @@ function boot(source: GiftSource) {
         letterDone = true
         letter.dataset.typed = '1'
         egift.hidden = !egiftReady
+        showThanks()
       }
     }
     fit()
@@ -428,7 +549,7 @@ function boot(source: GiftSource) {
   must('btn-egift').addEventListener('click', () => {
     const url = reveal?.egift?.url
     if (!url || rec) return
-    const check = checkEgiftUrl(url)
+    const check = checkEgiftUrl(url, extraDomains)
     const domain = must<HTMLParagraphElement>('confirm-domain')
     const warn = must<HTMLParagraphElement>('confirm-warn')
     const block = must<HTMLParagraphElement>('confirm-block')
@@ -454,6 +575,7 @@ function boot(source: GiftSource) {
   })
   must('confirm-go').addEventListener('click', (event) => {
     if (preview) event.preventDefault()
+    else void fetch(`/s/${encodeURIComponent(id)}/events`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"type":"egift_opened"}', credentials: 'omit', keepalive: true }).catch(() => undefined)
     confirm.hidden = true
   })
   must('confirm-cancel').addEventListener('click', () => {
@@ -541,8 +663,9 @@ async function start() {
     return
   }
   const giftId = giftIdFromLocation(window.location)
-  const source = giftId ? await resolveGift(giftId) : null
-  if (source) boot(source)
+  const source = giftId ? await resolveGiftFor(giftId, viewerKey()) : null
+  if (source === 'blocked') showError(BLOCKED_SENDER)
+  else if (source) boot(source)
   else showError()
 }
 

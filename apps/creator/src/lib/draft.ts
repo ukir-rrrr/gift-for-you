@@ -171,6 +171,13 @@ export type EgiftAssessment =
   | { status: 'warn'; domain: string }
   | { status: 'block'; message: string }
 
+let operatorDomains: readonly string[] = []
+
+/** E-gift domains the operator allowed on top of the built-in list (GET /s/egift-domains). */
+export function setExtraDomains(domains: readonly string[]) {
+  operatorDomains = domains
+}
+
 export function assessEgift(egift: EgiftDraft): EgiftAssessment {
   if (egift.kind === 'none') return { status: 'none' }
   if (egift.kind === 'code') {
@@ -178,7 +185,7 @@ export function assessEgift(egift: EgiftDraft): EgiftAssessment {
   }
   const url = egift.url.trim()
   if (!url) return { status: 'block', message: 'URLを入れてください' }
-  const check = checkEgiftUrl(url)
+  const check = checkEgiftUrl(url, operatorDomains)
   if (check.status === 'block') {
     return {
       status: 'block',

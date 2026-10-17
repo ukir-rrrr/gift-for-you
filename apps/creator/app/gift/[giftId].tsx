@@ -67,6 +67,11 @@ export default function GiftScreen() {
       <Title>{toName ? `${toName}へのギフト` : 'ギフト'}</Title>
       {status === 'revoked' ? <Notice tone="error" testID="gift-revoked">失効済みです。写真も消えています。</Notice> : null}
       {status === 'expired' ? <Notice tone="warn">期限が切れました。写真も消えています。</Notice> : null}
+      {status === 'hidden' ? (
+        <Notice tone="warn" testID="gift-hidden">
+          通報や削除依頼があったため、確認が終わるまで非公開になっています。
+        </Notice>
+      ) : null}
       {fresh ? (
         <Notice tone="ok" testID="published">
           公開しました。リンクを送ってください。

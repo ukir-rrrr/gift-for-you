@@ -1,14 +1,15 @@
-import { SHARE_TTL_DAYS } from '@gfy/schema'
+import { PRICE_TIERS, tierById, type TierId } from '@gfy/schema'
 import { useRouter } from 'expo-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Text, View } from 'react-native'
 import { PlayerPreview } from '../../src/components/PlayerPreview'
-import { Body, Button, Card, colors, Notice, Screen, styles } from '../../src/components/ui'
+import { Body, Button, Card, Choice, colors, Notice, Screen, styles } from '../../src/components/ui'
 import { describeError } from '../../src/lib/api'
 import { PUBLISH_STAGES, purchaseAndPublish, uploadAndModerate, type PublishStage } from '../../src/lib/publish'
+import { fallbackProducts, PurchaseCancelled, type StoreProduct } from '../../src/lib/purchases'
 import { buildContent, previewPayload } from '../../src/lib/share'
 import { addHistory, clearDraft, loadPhoto } from '../../src/lib/storage'
-import { sandboxStore } from '../../src/native/store'
+import { appStore } from '../../src/native/store'
 import { usePhotoUrls, useApp } from '../../src/state/app'
 
 type Phase =
@@ -22,7 +23,13 @@ type Phase =
 /** F2-08: upload -> moderation -> preview -> sandbox purchase -> share id -> link, QR, share sheet. */
 export default function PublishStep() {
   const router = useRouter()
-  const { draft, dispatch, latestDraft, kv, api, setPublished } = useApp()
+  const { draft, dispatch, latestDraft, kv, api, setPublished, credits, refreshCredits } = useApp()
+  const [tier, setTier] = useState<TierId>('standard')
+  const [products, setProducts] = useState<StoreProduct[]>(fallbackProducts())
+  const [buyNote, setBuyNote] = useState('')
+  useEffect(() => {
+    void appStore.products?.().then(setProducts)
+  }, [])
   const built = useMemo(() => buildContent(draft), [draft])
   const urls = usePhotoUrls(draft.coins.map((coin) => coin.photoRef))
   const [phase, setPhase] = useState<Phase>({ kind: 'start' })
@@ -75,9 +82,11 @@ export default function PublishStep() {
     setPhase({ kind: 'failed', stage: 'moderation', message: describeError(result.error) })
   }
 
-  async function buy(giftId: string) {
+  async function buy(giftId: string, credit?: string) {
+    setBuyNote('')
+    if (!credit) void api.track('purchase_started', { tier })
     try {
-      const published = await purchaseAndPublish(giftId, sandboxStore, api, (stage) => setPhase({ kind: 'working', stage }))
+      const published = await purchaseAndPublish(giftId, appStore, api, (stage) => setPhase({ kind: 'working', stage }), { tier, credit, kv })
       const toName = content.share.to.displayName
       await addHistory(kv, {
         giftId,
@@ -89,11 +98,20 @@ export default function PublishStep() {
         publishedAt: Date.now(),
       })
       setPublished({ ...published, giftId, toName })
+      void refreshCredits()
       router.replace(`/gift/${giftId}`)
       // The published gift lives on the server now; the draft and its photos leave the device.
       dispatch({ type: 'reset' })
       await clearDraft(kv)
     } catch (error) {
+      if (error instanceof PurchaseCancelled) {
+        void api.track('purchase_cancelled', { tier })
+        setBuyNote('購入をキャンセルしました。課金されていません。')
+        setPhase({ kind: 'buy', giftId })
+        return
+      }
+      // Whatever happened, a paid transaction is replayed on the next start (F3-03).
+      void refreshCredits()
       setPhase({ kind: 'failed', stage: 'purchase', message: describeError(error) })
     }
   }
@@ -179,9 +197,37 @@ export default function PublishStep() {
 
       {phase.kind === 'buy' ? (
         <Card>
-          <Body>{`公開するとリンクができ、${SHARE_TTL_DAYS}日間ひらけます。期限が来るか失効すると写真も消えます。`}</Body>
-          <Notice tone="warn">{sandboxStore.label}</Notice>
-          <Button label="購入して公開する" testID="purchase" onPress={() => void buy(phase.giftId)} />
+          <Body>プランをえらんでください。公開するとリンクができ、期限が来るか失効すると写真もサーバーから消えます。</Body>
+          {PRICE_TIERS.map((entry) => {
+            const price = products.find((product) => product.tier === entry.id)?.price ?? `¥${entry.priceJpy}`
+            return (
+              <Choice
+                key={entry.id}
+                title={`${entry.name}　${price}`}
+                detail={entry.blurb}
+                selected={tier === entry.id}
+                onPress={() => setTier(entry.id)}
+                testID={`tier-${entry.id}`}
+              />
+            )
+          })}
+          {buyNote ? <Notice tone="warn" testID="buy-note">{buyNote}</Notice> : null}
+          {credits.length > 0 ? (
+            <Notice tone="ok" testID="credit">
+              {`使われていない購入があります（${tierById(credits[0].tier ?? '')?.name ?? '購入済み'}）。これで公開できます。`}
+            </Notice>
+          ) : null}
+          {credits.length > 0 ? (
+            <Button label="購入済みの分で公開する" testID="use-credit" onPress={() => void buy(phase.giftId, credits[0].transactionId)} />
+          ) : null}
+          <Notice tone="warn">{appStore.label}</Notice>
+          <Button
+            label={`${products.find((product) => product.tier === tier)?.price ?? ''}で購入して公開する`}
+            kind={credits.length > 0 ? 'secondary' : 'primary'}
+            testID="purchase"
+            onPress={() => void buy(phase.giftId)}
+          />
+          <Body muted>消耗型のアプリ内課金です（ギフト1件ごと）。購入後に通信が切れても、次にアプリを開いたときに自動で公開の手続きを再開します。</Body>
         </Card>
       ) : null}
     </Screen>

@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
-import { Api, type Published } from '../lib/api'
-import { emptyDraft, reduceDraft, type Draft, type DraftAction } from '../lib/draft'
+import { Api, type Credit, type Published } from '../lib/api'
+import { emptyDraft, reduceDraft, setExtraDomains, type Draft, type DraftAction } from '../lib/draft'
+import { settlePurchases } from '../lib/purchases'
 import { loadDraft, photoDataUrl, saveDraft, type KV } from '../lib/storage'
 import { API_ORIGIN } from '../native/config'
 import { deviceKey } from '../native/device'
 import { kv as defaultKv } from '../native/kv'
+import { appStore } from '../native/store'
 
 export type PublishedGift = Published & { giftId: string; toName: string }
 
@@ -24,6 +26,9 @@ type AppState = {
   /** The last publish result. The revoke code lives only here and on screen; it is never written to storage. */
   published: PublishedGift | null
   setPublished: (gift: PublishedGift | null) => void
+  /** F3-03: verified purchases no gift has used yet, after replaying unfinished ones. */
+  credits: Credit[]
+  refreshCredits: () => Promise<Credit[]>
 }
 
 const AppContext = createContext<AppState | null>(null)
@@ -39,7 +44,19 @@ export function AppProvider({ children, kv = defaultKv }: { children: ReactNode;
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [published, setPublished] = useState<PublishedGift | null>(null)
+  const [credits, setCredits] = useState<Credit[]>([])
   const api = useMemo(() => new Api(API_ORIGIN, deviceKey), [])
+  const refreshCredits = useCallback(async () => {
+    const next = await settlePurchases(api, kv, appStore)
+    setCredits(next)
+    return next
+  }, [api, kv])
+
+  // On start: finish any purchase the server never saw, and load the operator's e-gift allowlist.
+  useEffect(() => {
+    void refreshCredits()
+    void api.egiftDomains().then(setExtraDomains)
+  }, [api, refreshCredits])
   const skipNextSave = useRef(true)
   const latest = useRef(draft)
   useLayoutEffect(() => {
@@ -76,8 +93,8 @@ export function AppProvider({ children, kv = defaultKv }: { children: ReactNode;
   }, [draft, kv, loaded])
 
   const value = useMemo(
-    () => ({ draft, dispatch, latestDraft, loaded, saving, kv, api, published, setPublished }),
-    [draft, latestDraft, loaded, saving, kv, api, published],
+    () => ({ draft, dispatch, latestDraft, loaded, saving, kv, api, published, setPublished, credits, refreshCredits }),
+    [draft, latestDraft, loaded, saving, kv, api, published, credits, refreshCredits],
   )
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }

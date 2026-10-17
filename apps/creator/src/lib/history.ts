@@ -1,11 +1,26 @@
 import type { RemoteGift } from './api'
 import type { LocalGift } from './storage'
 
-export type HistoryStatus = 'published' | 'revoked' | 'expired' | 'unknown'
+export type HistoryStatus = 'published' | 'revoked' | 'expired' | 'hidden' | 'unknown'
 
-export type HistoryRow = { giftId: string; toName: string; status: HistoryStatus; expiresAt: string | null; opened: boolean; goal: boolean }
+export type HistoryRow = {
+  giftId: string
+  toName: string
+  status: HistoryStatus
+  expiresAt: string | null
+  opened: boolean
+  goal: boolean
+  /** F3-09 stamp the recipient sent back. */
+  thanks: string | null
+}
 
-export const HISTORY_STATUS: Record<HistoryStatus, string> = { published: '公開中', revoked: '失効', expired: '期限切れ', unknown: '確認できません' }
+export const HISTORY_STATUS: Record<HistoryStatus, string> = {
+  published: '公開中',
+  revoked: '失効',
+  expired: '期限切れ',
+  hidden: '確認中（非公開）',
+  unknown: '確認できません',
+}
 
 /**
  * Gifts this device published (local list) joined with what the server knows for this device key.
@@ -21,6 +36,7 @@ export function mergeHistory(local: LocalGift[], remote: RemoteGift[] | null): H
       expiresAt: gift.expiresAt,
       opened: false,
       goal: false,
+      thanks: null,
     })
   }
   for (const gift of remote ?? []) {
@@ -32,6 +48,7 @@ export function mergeHistory(local: LocalGift[], remote: RemoteGift[] | null): H
       expiresAt: gift.expiresAt ? new Date(gift.expiresAt).toISOString() : (known?.expiresAt ?? null),
       opened: gift.openedAt !== null,
       goal: gift.goalAt !== null,
+      thanks: gift.thanks ?? null,
     })
   }
   return [...rows.values()]

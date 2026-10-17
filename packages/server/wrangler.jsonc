@@ -1,4 +1,4 @@
-// Production still needs real D1/R2 ids, a domain, and real providers (docs/phase2.md).
+// Production still needs real D1/R2 ids, a domain, real providers, and secrets (docs/phase3.md).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "gift-for-you",
@@ -8,7 +8,7 @@
     "directory": "../player/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/s/*", "/r/*"]
+    "run_worker_first": ["/api/*", "/s/*", "/r/*", "/g/*", "/admin", "/admin/*", "/legal/*", "/support", "/webhooks/*"]
   },
   "d1_databases": [
     {
@@ -22,11 +22,21 @@
   "triggers": { "crons": ["17 * * * *"] },
   // Deployed defaults fail closed: no provider is configured, so publishing answers 503 until real
   // ones exist. Local runs switch the mocks on with --var (see package.json "dev" and "e2e:serve").
+  // Production values: MODERATION "vision", PURCHASE "revenuecat", NOTIFIER "expo", SIGNIN "oidc".
+  // Secrets (GOOGLE_VISION_API_KEY, REVENUECAT_SECRET_KEY, REVENUECAT_WEBHOOK_AUTH, EXPO_ACCESS_TOKEN,
+  // ADMIN_TOKEN, HASH_SALT) go in with `wrangler secret put`, never here.
   "vars": {
     "PUBLIC_ORIGIN": "",
     "MODERATION": "none",
     "PURCHASE": "none",
-    "NOTIFIER": "none"
+    "NOTIFIER": "none",
+    "SIGNIN": "none",
+    "SUPPORT_EMAIL": "",
+    "APPLE_AUDIENCE": "",
+    "GOOGLE_AUDIENCES": "",
+    "REPORT_HIDE_THRESHOLD": "3",
+    // "1" on purpose: App Review buys with sandbox accounts. Sandbox purchases are counted apart in /admin.
+    "REVENUECAT_ALLOW_SANDBOX": "1"
   },
   "observability": { "enabled": true }
 }

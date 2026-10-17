@@ -10,5 +10,5 @@ export const LIMITS = {
   passphraseMax: 32,
 } as const
 
-/** Days a published gift stays reachable. Fixed for Phase 2. */
+/** Days a standard-tier gift stays reachable. The premium tier sets its own (PRICE_TIERS). */
 export const SHARE_TTL_DAYS = 14

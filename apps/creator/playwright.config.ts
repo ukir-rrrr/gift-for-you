@@ -11,6 +11,10 @@ export default defineConfig({
   use: {
     viewport: { width: 390, height: 844 },
     baseURL: 'http://127.0.0.1:8081',
+    // A step that hangs fails here with its name instead of running into the whole-test timeout.
+    actionTimeout: 30000,
+    navigationTimeout: 30000,
+    trace: 'retain-on-failure',
     launchOptions: chromium,
   },
   webServer: [
@@ -25,7 +29,7 @@ export default defineConfig({
       url: 'http://127.0.0.1:8081/',
       reuseExistingServer: false,
       timeout: 600000,
-      env: { EXPO_PUBLIC_PUSH_MOCK: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', CI: '1' },
+      env: { EXPO_PUBLIC_PUSH_MOCK: '1', EXPO_PUBLIC_SIGNIN_MOCK: '1', EXPO_OFFLINE: '1', EXPO_NO_TELEMETRY: '1', CI: '1' },
     },
   ],
 })

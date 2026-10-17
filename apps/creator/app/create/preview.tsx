@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { View } from 'react-native'
 import { PlayerPreview } from '../../src/components/PlayerPreview'
 import { Body, Button, Notice, Screen } from '../../src/components/ui'
@@ -9,8 +9,11 @@ import { usePhotoUrls, useApp } from '../../src/state/app'
 /** F2-06: the real player bundle with the local draft; e-gift is a dummy and nothing is sent. */
 export default function PreviewStep() {
   const router = useRouter()
-  const { draft } = useApp()
+  const { draft, api } = useApp()
   const built = useMemo(() => buildContent(draft), [draft])
+  useEffect(() => {
+    void api.track('preview_opened')
+  }, [api])
   const urls = usePhotoUrls(draft.coins.map((coin) => coin.photoRef))
   const ready = draft.coins.every((coin) => urls[coin.photoRef])
 

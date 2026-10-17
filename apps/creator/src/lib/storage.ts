@@ -95,3 +95,10 @@ export function memoryKV(): KV & { data: Map<string, string> } {
     getAllKeys: async () => [...data.keys()],
   }
 }
+
+/** F3-12: everything this app wrote on the device (draft, photos, history, pending purchases). */
+export async function wipeLocalData(kv: KV): Promise<number> {
+  const keys = (await kv.getAllKeys()).filter((key) => key.startsWith('gfy:'))
+  for (const key of keys) await kv.removeItem(key)
+  return keys.length
+}

@@ -120,11 +120,12 @@ export async function flushQueue(): Promise<number> {
   return sent.length
 }
 
-export async function fetchReveal(id: string): Promise<Reveal> {
+export async function fetchReveal(id: string, viewer?: string): Promise<Reveal> {
   if (!goalMarked(id)) throw new Error('goal required')
   let raw: unknown = null
   try {
-    const res = await fetch(`/s/${encodeURIComponent(id)}/reveal`)
+    // The viewer key lets the server hold back the letter of a sender this browser blocked.
+    const res = await fetch(`/s/${encodeURIComponent(id)}/reveal`, viewer ? { headers: { 'x-gfy-viewer': viewer } } : undefined)
     if (res.ok) raw = await res.json()
   } catch {
     raw = null

@@ -5,12 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="robots" content="noindex" />
     <title>gift-for-you</title>
+    <!-- F3-08: one generic preview for every link. No names, photos, or messages; the Worker makes og:image absolute. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="gift-for-you" />
+    <meta property="og:title" content="小さな冒険のギフトが届いています" />
+    <meta property="og:description" content="リンクをひらくと、短い冒険のあとにプレゼントが待っています。" />
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body data-screen="boot">
     <div id="rotate" hidden>たてむきにしてね</div>
     <div id="error" hidden>
       <p id="error-text" data-testid="error"></p>
+      <p class="links"><a href="/support" target="_blank" rel="noopener">お問い合わせ</a><a href="/legal/terms" target="_blank" rel="noopener">利用規約</a></p>
     </div>
     <div id="stage">
       <div id="frame">
@@ -66,6 +76,7 @@
     <div id="title">
       <h1 id="title-text" data-testid="title"></h1>
       <button id="btn-start" type="button" disabled>よみこみ中</button>
+      <p class="links"><button type="button" class="link open-report" data-testid="open-report">通報・ブロック</button><a href="/legal/terms" target="_blank" rel="noopener">利用規約</a><a href="/legal/privacy" target="_blank" rel="noopener">プライバシー</a><a href="/support" target="_blank" rel="noopener">お問い合わせ</a></p>
     </div>
     <div id="letter" data-testid="letter" hidden>
       <div id="letter-body"></div>
@@ -79,6 +90,31 @@
           <button type="submit">ひらく</button>
           <p id="unlock-error" role="alert"></p>
         </form>
+      </div>
+      <div id="thanks" data-testid="thanks" hidden>
+        <p>おくりぬしに ひとこと かえす</p>
+        <div id="thanks-stamps"></div>
+        <p id="thanks-done" data-testid="thanks-done" role="status" hidden></p>
+      </div>
+      <p class="links"><button type="button" class="link open-report" data-testid="open-report">通報・ブロック</button><a href="/legal/terms" target="_blank" rel="noopener">利用規約</a><a href="/legal/privacy" target="_blank" rel="noopener">プライバシー</a><a href="/support" target="_blank" rel="noopener">お問い合わせ</a></p>
+    </div>
+    <div id="report" data-testid="report" hidden>
+      <div class="sheet">
+        <h2>このギフトについて知らせる</h2>
+        <form id="report-form">
+          <fieldset id="report-reasons"><legend>りゆう</legend></fieldset>
+          <textarea id="report-detail" maxlength="300" rows="3" placeholder="くわしく（なくてもだいじょうぶ）" aria-label="くわしく"></textarea>
+          <p id="report-removal" hidden>写っているのがあなたなら、<a href="/legal/removal" target="_blank" rel="noopener">削除依頼フォーム</a>からも依頼できます。受け付けた時点でこのギフトは非公開になります。</p>
+          <button type="submit" id="report-send" data-testid="report-send">送る</button>
+        </form>
+        <p id="report-result" data-testid="report-result" role="status"></p>
+        <hr />
+        <button id="btn-block" type="button" data-testid="block">この送り主をブロック</button>
+        <div id="block-confirm" hidden>
+          <p>ブロックすると、この端末ではこの送り主からのギフトが開けなくなります。</p>
+          <button id="btn-block-yes" type="button" data-testid="block-yes">ブロックする</button>
+        </div>
+        <button id="report-close" type="button" data-testid="report-close">とじる</button>
       </div>
     </div>
     <div id="confirm" hidden>

@@ -2,6 +2,7 @@ import { catalogIndex } from '@gfy/catalog'
 import { isExpired, parseRevealJson, parseShareJson, type ShareJson } from '@gfy/schema'
 import { fetchReveal, type Reveal } from './net'
 import { loadGift } from './route'
+import { viewerKey } from './safety'
 
 export type Egift = NonNullable<Reveal['egift']>
 
@@ -28,7 +29,7 @@ async function postUnlock(id: string, passphrase: string): Promise<UnlockResult>
   try {
     const res = await fetch(`/s/${encodeURIComponent(id)}/unlock`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-gfy-viewer': viewerKey() },
       body: JSON.stringify({ passphrase }),
       credentials: 'omit',
     })
@@ -60,18 +61,23 @@ function remoteSource(id: string, share: ShareJson): GiftSource {
     share,
     preview: false,
     photoUrl: (ref) => `${base}/photos/${encodeURIComponent(ref)}`,
-    reveal: () => fetchReveal(id),
+    reveal: () => fetchReveal(id, viewerKey()),
     unlock: (passphrase) => postUnlock(id, passphrase),
   }
 }
 
-/** Bundled samples resolve without a request; anything else asks the gift server. */
-export async function resolveGift(id: string, now = new Date()): Promise<GiftSource | null> {
+/**
+ * Bundled samples resolve without a request; anything else asks the gift server. "blocked" means
+ * this browser blocked the gift's sender (F3-12).
+ */
+export async function resolveGiftFor(id: string, viewer: string | undefined, now = new Date()): Promise<GiftSource | 'blocked' | null> {
   const sample = loadGift(id, now)
   if (sample.ok) return sampleSource(sample.id, sample.share)
   if (id === 'demo' || id === 'offlist' || id === 'expired') return null
   try {
-    const res = await fetch(`/s/${encodeURIComponent(id)}/share`, { credentials: 'omit' })
+    const init: RequestInit = viewer ? { credentials: 'omit', headers: { 'x-gfy-viewer': viewer } } : { credentials: 'omit' }
+    const res = await fetch(`/s/${encodeURIComponent(id)}/share`, init)
+    if (res.status === 403 && ((await res.json().catch(() => null)) as { error?: string } | null)?.error === 'blocked') return 'blocked'
     if (!res.ok) return null
     const parsed = parseShareJson(await res.json(), catalogIndex())
     if (!parsed.ok || isExpired(parsed.value, now)) return null
@@ -79,6 +85,12 @@ export async function resolveGift(id: string, now = new Date()): Promise<GiftSou
   } catch {
     return null
   }
+}
+
+/** Same as resolveGiftFor without a viewer key: a block never applies. */
+export async function resolveGift(id: string, now = new Date()): Promise<GiftSource | null> {
+  const source = await resolveGiftFor(id, undefined, now)
+  return source === 'blocked' ? null : source
 }
 
 export type PreviewPayload = {

@@ -78,3 +78,13 @@ export async function verifyPassphrase(passphrase: string, stored: string): Prom
 export function validDeviceKey(key: string): boolean {
   return /^[A-Za-z0-9_-]{43}$/.test(key)
 }
+
+export async function hmacHex(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  return toHex(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message)))
+}
+
+/** Random base64url ids for accounts. */
+export function newAccountId(): string {
+  return `acct_${pick(BASE62, 22)}`
+}
